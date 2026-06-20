@@ -308,18 +308,48 @@ fi
 ok "Enabling user lingering for $username so home-manager has a live DBus session ..."
 sudo loginctl enable-linger "$username"
 
-# --- 11. build & switch -----------------------------------------------------
+# --- 11. build (boot for first install, switch for reconfig) ---------------
+# Fresh install on a TTY can't safely live-switch: home-manager-<user>.service
+# does `dconf write` for Stylix's GTK target, which needs the user's session
+# DBus bus to be up and addressable in the running environment. On a fresh
+# system the user manager + bus aren't reliably reachable from a system
+# service running under systemd's User= directive, and the activation fails
+# with "GDBus.Error.ServiceUnknown: The name is not activatable".
+#
+# Detect fresh-vs-reconfig by checking whether the user's home-manager system
+# unit already exists (it only does after a prior successful build):
+#   - fresh  -> `nixos-rebuild boot` + reboot prompt (services come up clean
+#               at next boot with linger already on)
+#   - reconf -> `nixos-rebuild switch` (live, no reboot needed for role
+#               changes once the system is past first install)
+#
 # First-run rebuild needs flake features on the CLI; subsequent rebuilds
 # inherit them from modules/common/base.nix's nix.settings.
-ok "Building the system. First run downloads everything; expect a wait."
-sudo nixos-rebuild switch \
+if systemctl list-unit-files --quiet "home-manager-${username}.service" >/dev/null 2>&1 \
+   && systemctl --quiet is-enabled "home-manager-${username}.service" 2>/dev/null; then
+  rebuild_action=switch
+else
+  rebuild_action=boot
+fi
+
+ok "Building the system ($rebuild_action). First run downloads everything; expect a wait."
+sudo nixos-rebuild "$rebuild_action" \
   --flake "$NIXOS_DIR#$hostname" \
   --option experimental-features "nix-command flakes"
 
 echo
-bold "Bootstrap complete."
-echo "Future rebuilds: sudo nixos-rebuild switch --flake /etc/nixos#$hostname"
-echo "Re-run this script to change role/hardware module selection."
+if [ "$rebuild_action" = "boot" ]; then
+  bold "Bootstrap complete — fresh install."
+  echo "The new configuration is staged as the next-boot default but is NOT"
+  echo "live yet. Reboot to activate it. After the next boot, future rebuilds"
+  echo "are live: sudo nixos-rebuild switch --flake /etc/nixos#$hostname"
+  echo
+  if ask_yn "Reboot now?" y; then sudo reboot; fi
+else
+  bold "Bootstrap complete."
+  echo "Future rebuilds: sudo nixos-rebuild switch --flake /etc/nixos#$hostname"
+  echo "Re-run this script to change role/hardware module selection."
+fi
 if [ "$multi_monitor" = "y" ]; then
   echo
   echo "Multi-monitor: after first boot, run \`hyprctl monitors\` to discover"
