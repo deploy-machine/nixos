@@ -21,6 +21,7 @@ in
       inactive_tab_background = "#${c.bgAlt}";
       inactive_tab_foreground = "#${c.comment}";
       background_opacity = "0.92";
+      window_padding_width = 8;
 
       # 16 terminal colors (milkoutside terminal table)
       color0 = "#000000"; color8 = "#303030";
