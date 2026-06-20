@@ -24,10 +24,10 @@ in
       hl.exec_cmd("bash -c 'sleep 6 && awww img ${wallpaper}'")
       hl.exec_cmd("nm-applet --indicator")
       hl.exec_cmd("sleep 6 && systemctl --user start wayvnc.service")
-      hl.exec_cmd("waybar")
-      hl.exec_cmd("swaync")
     end)
-    -- waybar + swaync autostart via their home-manager systemd user services.
+    -- waybar + swaync are started by their home-manager systemd user services
+    -- (wantedBy = graphical-session.target). Don't also exec them here, that
+    -- caused 4-bars-on-2-monitors (one set per spawn × per monitor).
 
     ------------------------------------------------------------------- MONITORS
     -- Per-host monitor layout (written by modules/roles/multi-monitor.nix).
@@ -95,7 +95,10 @@ in
             kb_layout  = "us",
             kb_variant = "",
             kb_model   = "",
-            kb_options = "",
+            -- ctrl:nocaps: CapsLock becomes a second Ctrl. Carried over from
+            -- the omarchy keyboard setup — no more accidental SHOUTING and
+            -- the home-row Ctrl makes vim/tmux comfortable.
+            kb_options = "ctrl:nocaps",
             kb_rules   = "",
             follow_mouse = 1,
             sensitivity = 0,
@@ -104,6 +107,13 @@ in
             },
         },
     })
+
+    ----------------------------------------------------------------- WORKSPACE RULES
+    -- Smart gaps from the omarchy config: workspaces holding exactly one tiled
+    -- or one fullscreen window drop the surrounding gap and border so the
+    -- single window fills the screen edge-to-edge.
+    hl.workspace({ selector = "w[tv1]", rules = { gapsout = 0, gapsin = 0 } })
+    hl.workspace({ selector = "f[1]",    rules = { gapsout = 0, gapsin = 0 } })
 
     ------------------------------------------------------------------ ANIMATIONS
     hl.curve("easeOutQuint",   { type = "bezier", points = { {0.23, 1},    {0.32, 1}    } })
@@ -131,31 +141,51 @@ in
     hl.device({ name = "epic-mouse-v1", sensitivity = -0.5 })
 
     ------------------------------------------------------------------ KEYBINDINGS
-    local mainMod = "ALT"
+    -- Adopted from the omarchy hyprland setup: SUPER as main mod, vim-motion
+    -- focus, fluid multi-monitor workspaces (Super+M throws the current
+    -- workspace to the other monitor). Workspace digits use plain US QWERTY
+    -- numbers (omarchy's symbol keys map via a custom dvorak layout we don't
+    -- ship — the index is the same, the physical key differs).
+    local mainMod = "SUPER"
 
-    hl.bind(mainMod .. " + Q", hl.dsp.exec_cmd(terminal))
-    hl.bind(mainMod .. " + C", hl.dsp.window.close())
-    hl.bind(mainMod .. " + M", hl.dsp.exit())
-    hl.bind(mainMod .. " + E", hl.dsp.exec_cmd(fileManager))
-    hl.bind(mainMod .. " + V", hl.dsp.window.float({ action = "toggle" }))
-    hl.bind(mainMod .. " + R", hl.dsp.exec_cmd(menu))
-    hl.bind(mainMod .. " + P", hl.dsp.window.pseudo())
-    hl.bind(mainMod .. " + J", hl.dsp.layout("togglesplit"))
+    -- Programs
+    hl.bind(mainMod .. " + Q",          hl.dsp.exec_cmd(terminal))
+    hl.bind(mainMod .. " + C",          hl.dsp.window.close())
+    hl.bind(mainMod .. " + SHIFT + M",  hl.dsp.exit())
+    hl.bind(mainMod .. " + E",          hl.dsp.exec_cmd(fileManager))
+    hl.bind(mainMod .. " + V",          hl.dsp.window.float({ action = "toggle" }))
+    hl.bind(mainMod .. " + D",          hl.dsp.exec_cmd(menu))
+    hl.bind(mainMod .. " + P",          hl.dsp.window.pseudo())
+    hl.bind(mainMod .. " + SHIFT + J",  hl.dsp.layout("togglesplit"))
+    hl.bind(mainMod .. " + F",          hl.dsp.window.fullscreen())
 
+    -- Multi-monitor workspaces: send whatever workspace is here to the next
+    -- monitor in line. No per-monitor workspace pinning — workspaces float
+    -- between displays at will, the way omarchy uses them.
+    hl.bind(mainMod .. " + M", hl.dsp.exec_cmd("hyprctl dispatch movecurrentworkspacetomonitor +1"))
+
+    -- Focus: vim-motion (h/j/k/l) like omarchy, plus arrow-key fallback.
+    hl.bind(mainMod .. " + h",     hl.dsp.focus({ direction = "left" }))
+    hl.bind(mainMod .. " + l",     hl.dsp.focus({ direction = "right" }))
+    hl.bind(mainMod .. " + k",     hl.dsp.focus({ direction = "up" }))
+    hl.bind(mainMod .. " + j",     hl.dsp.focus({ direction = "down" }))
     hl.bind(mainMod .. " + left",  hl.dsp.focus({ direction = "left" }))
     hl.bind(mainMod .. " + right", hl.dsp.focus({ direction = "right" }))
     hl.bind(mainMod .. " + up",    hl.dsp.focus({ direction = "up" }))
     hl.bind(mainMod .. " + down",  hl.dsp.focus({ direction = "down" }))
 
+    -- Workspaces 1-10 (0 = ws 10) — index matches omarchy's symbol mapping.
     for i = 1, 10 do
         local key = i % 10
         hl.bind(mainMod .. " + " .. key,         hl.dsp.focus({ workspace = i }))
         hl.bind(mainMod .. " + SHIFT + " .. key, hl.dsp.window.move({ workspace = i }))
     end
 
+    -- Scroll through workspaces with Super + scroll wheel.
     hl.bind(mainMod .. " + mouse_down", hl.dsp.focus({ workspace = "e+1" }))
     hl.bind(mainMod .. " + mouse_up",   hl.dsp.focus({ workspace = "e-1" }))
 
+    -- Drag / resize with Super + LMB/RMB.
     hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(),   { mouse = true })
     hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 
