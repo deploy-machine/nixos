@@ -2,6 +2,28 @@
 let
   c = import ./colors.nix;
   wallpaper = "${config.home.homeDirectory}/Wallpapers/nixos.png";
+
+  # zjeffer/split-monitor-workspaces — gives each monitor its own 1..N workspace
+  # set (omarchy-style multi-monitor). Tags track Hyprland releases; pin to the
+  # tag matching pkgs.hyprland so the plugin ABI lines up. Built with
+  # hyprland.stdenv so the C++23 ABI/gcc version matches the compositor.
+  # Uses meson (the upstream Makefile lacks an install target and chokes inside
+  # the nix sandbox — meson.build is the path the project's own flake takes).
+  split-monitor-workspaces = pkgs.hyprland.stdenv.mkDerivation rec {
+    pname   = "hyprland-split-monitor-workspaces";
+    version = "0.55.2";
+    src = pkgs.fetchFromGitHub {
+      owner  = "zjeffer";
+      repo   = "split-monitor-workspaces";
+      rev    = "v${version}";
+      sha256 = "1qg682cbn6670zq8vf9k8add5rng4iczxsdgvv7wbl22n9s7x22f";
+    };
+    nativeBuildInputs = with pkgs; [ meson ninja pkg-config ];
+    # Lua 5.4 is required: src/helpers.cpp uses lua_isinteger which only exists
+    # in Lua >= 5.3. The bare `lua` attr in nixpkgs still resolves to 5.2.
+    buildInputs       = [ pkgs.hyprland pkgs.lua5_4 pkgs.pango pkgs.cairo ]
+                        ++ pkgs.hyprland.buildInputs;
+  };
 in
 {
   # Hyprland 0.55 loads ~/.config/hypr/hyprland.lua (native Lua) and does NOT fall
@@ -37,6 +59,22 @@ in
     ------------------------------------------------------------------- ENV VARS
     hl.env("XCURSOR_SIZE", "24")
     hl.env("HYPRCURSOR_SIZE", "24")
+
+    --------------------------------------------------------------------- PLUGINS
+    -- split-monitor-workspaces: each monitor has its own 1..N workspace set.
+    -- Built from zjeffer/split-monitor-workspaces at v0.55.2 (see hyprland.nix
+    -- let-block). Loaded BEFORE any binds/dispatchers that reference it.
+    hl.plugin.load("${split-monitor-workspaces}/lib/libsplit-monitor-workspaces.so")
+    hl.config({
+        plugin = {
+            ["split-monitor-workspaces"] = {
+                count                        = 10,
+                keep_focused                 = 0,
+                enable_notifications         = 0,
+                enable_persistent_workspaces = 1,
+            },
+        },
+    })
 
     -------------------------------------------------------------- LOOK AND FEEL
     hl.config({
@@ -159,10 +197,11 @@ in
     hl.bind(mainMod .. " + SHIFT + J",  hl.dsp.layout("togglesplit"))
     hl.bind(mainMod .. " + F",          hl.dsp.window.fullscreen())
 
-    -- Multi-monitor workspaces: send whatever workspace is here to the next
-    -- monitor in line. No per-monitor workspace pinning — workspaces float
-    -- between displays at will, the way omarchy uses them.
-    hl.bind(mainMod .. " + M", hl.dsp.exec_cmd("hyprctl dispatch movecurrentworkspacetomonitor +1"))
+    -- Move the focused window between monitors. split-monitor-workspaces'
+    -- split-changemonitor uses spatial position (prev/next = left/right) so
+    -- it matches whatever physical layout monitors.lua declares.
+    hl.bind(mainMod .. " + SHIFT + h", hl.dsp.exec_cmd("hyprctl dispatch split-changemonitor prev"))
+    hl.bind(mainMod .. " + SHIFT + l", hl.dsp.exec_cmd("hyprctl dispatch split-changemonitor next"))
 
     -- Focus: vim-motion (h/j/k/l) like omarchy, plus arrow-key fallback.
     hl.bind(mainMod .. " + h",     hl.dsp.focus({ direction = "left" }))
@@ -174,11 +213,13 @@ in
     hl.bind(mainMod .. " + up",    hl.dsp.focus({ direction = "up" }))
     hl.bind(mainMod .. " + down",  hl.dsp.focus({ direction = "down" }))
 
-    -- Workspaces 1-10 (0 = ws 10) — index matches omarchy's symbol mapping.
+    -- Workspaces 1-10 (0 = ws 10), per-monitor via split-monitor-workspaces.
+    -- split-workspace / split-movetoworkspacesilent take the SAME 1..count
+    -- index but resolve it relative to the focused monitor's workspace bank.
     for i = 1, 10 do
         local key = i % 10
-        hl.bind(mainMod .. " + " .. key,         hl.dsp.focus({ workspace = i }))
-        hl.bind(mainMod .. " + SHIFT + " .. key, hl.dsp.window.move({ workspace = i }))
+        hl.bind(mainMod .. " + " .. key,         hl.dsp.exec_cmd("hyprctl dispatch split-workspace " .. i))
+        hl.bind(mainMod .. " + SHIFT + " .. key, hl.dsp.exec_cmd("hyprctl dispatch split-movetoworkspacesilent " .. i))
     end
 
     -- Scroll through workspaces with Super + scroll wheel.
