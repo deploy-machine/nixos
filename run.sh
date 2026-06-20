@@ -325,8 +325,13 @@ sudo loginctl enable-linger "$username"
 #
 # First-run rebuild needs flake features on the CLI; subsequent rebuilds
 # inherit them from modules/common/base.nix's nix.settings.
-if systemctl list-unit-files --quiet "home-manager-${username}.service" >/dev/null 2>&1 \
-   && systemctl --quiet is-enabled "home-manager-${username}.service" 2>/dev/null; then
+# is-active is the only reliable signal — is-enabled returns true even when
+# a previous failed `switch` only WROTE the unit file without ever activating
+# it, which would trick us into trying switch again. home-manager's service
+# is Type=oneshot with RemainAfterExit, so a successful activation leaves it
+# "active"; a failed one shows "failed", and a never-run install shows
+# "inactive" or "Unit not found".
+if systemctl --quiet is-active "home-manager-${username}.service" 2>/dev/null; then
   rebuild_action=switch
 else
   rebuild_action=boot
