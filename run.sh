@@ -295,7 +295,20 @@ return {
 LUA
 fi
 
-# --- 10. build & switch -----------------------------------------------------
+# --- 10. enable user lingering BEFORE the rebuild --------------------------
+# home-manager-<user>.service runs `dconf write` during dconfSettings
+# activation (Stylix's GTK target etc). dconf needs the user's session DBus
+# bus, which only exists when systemd --user is running for that user. On a
+# fresh install that hasn't reached a graphical login yet, the user manager
+# isn't running, so the activation fails with
+# "GDBus.Error.ServiceUnknown: The name is not activatable".
+# `loginctl enable-linger` starts the user manager immediately AND makes it
+# auto-start at boot. The users.users.<user>.linger = true in users.nix
+# persists this — we run it here so the very first switch already benefits.
+ok "Enabling user lingering for $username so home-manager has a live DBus session ..."
+sudo loginctl enable-linger "$username"
+
+# --- 11. build & switch -----------------------------------------------------
 # First-run rebuild needs flake features on the CLI; subsequent rebuilds
 # inherit them from modules/common/base.nix's nix.settings.
 ok "Building the system. First run downloads everything; expect a wait."
