@@ -1,58 +1,61 @@
-# milkoutside / cybr — declarative NixOS rice
+# milkoutside / cybr — modular NixOS toolkit
 
-A single-machine NixOS configuration for a Hyprland desktop themed end-to-end
-with the **milkoutside** palette (pink/cyan on near-black). The whole system
-— bootloader, audio, networking, login manager, window manager, bar, terminal,
-launcher, notifications, shell, prompt, editor, file manager, Discord — is
-declared in this repo and brought up by `./run.sh`.
+A **host-agnostic** library of NixOS modules — hardware (CPU/GPU/VM-guest),
+deployment role (headless/desktop/gaming-kiosk + laptop/multi-monitor/gaming),
+and a shared user/theming layer (Hyprland, Waybar, Stylix, Nixcord, LazyVim,
+zsh+starship). An interactive bootstrap (`./run.sh`) detects the machine's
+hardware, asks the deployment questions a script can't sniff, and writes a
+per-machine `/etc/nixos/{flake,host,hardware-configuration}.nix` that composes
+the right modules.
 
-## Stack
-
-| Layer | Piece |
-| --- | --- |
-| OS | NixOS 26.05 (channel `nixos-unstable` exposed as `<unstable>` for cherry-picks) |
-| Login | `greetd` booting straight into a headless-aware Hyprland session, `tuigreet` as fallback |
-| WM | Hyprland 0.55+ (native Lua config), with `wayvnc` exposing the headless display on `:5900` |
-| Bar | Waybar (hand-tuned powerline, milkoutside palette) |
-| Notifications | swaync (custom CSS) |
-| Terminal | kitty + GeistMono / JetBrainsMono Nerd Fonts |
-| Launcher | rofi (`drun`, milkoutside `.rasi`) |
-| Shell | zsh + starship (cybr "lucid" prompt recoloured) |
-| CLI sugar | lsd, bat, fzf, zoxide, yazi, lazygit, dust, duf, procs, gping, glow, onefetch, tealdeer, delta |
-| Editor | Neovim + LazyVim, with config kept editable at `~/dotfiles/nvim` (out-of-store symlink) |
-| Discord | Nixcord (declarative Vencord) |
-| Theming | Stylix drives GTK, Qt, console, cursor, bat, btop, cava, fzf, mpv, firefox, chromium, vscode, Vencord… from one base16 palette |
-| User env | Home-Manager via the NixOS module (`home-manager.users.simbaclaws = import ./home.nix`) |
+**Per-host config never lands in the repo.** The repo is just the modules + the
+bootstrap. Each machine owns its `/etc/nixos/` and pins this repo as a flake
+input (`path:/path/to/this/repo`).
 
 ## Layout
 
 ```
-configuration.nix   # system: bootloader, networking, users, greetd, pipewire, system packages, home-manager hook
-hardware-configuration.nix  # per-machine (gitignored, copied in by run.sh)
-home.nix            # home-manager entry point — imports every user-level module
-hyprland.nix        # ~/.config/hypr/hyprland.lua (native Lua, not the HM Lua generator)
-waybar.nix          # bar config + CSS
-desktop.nix         # kitty, rofi, swaync (the bespoke milkoutside surfaces Stylix is told to skip)
-shell.nix           # zsh + cybr starship prompt
-cli.nix             # modern CLI tooling (lsd/bat/fzf/zoxide/yazi/lazygit/…)
-neovim.nix          # neovim package + out-of-store symlink to ~/dotfiles/nvim
-nixcord.nix         # Vencord via the nixcord home module
-stylix.nix          # base16 palette, fonts, cursor; auto-themes everything not opted out
-colors.nix          # palette constants shared by hand-tuned modules
-run.sh              # bootstrap (channels, hardware config, symlink /etc/nixos, nixos-rebuild)
+flake.nix              # exposes lib.mkHost + nixosModules.{common,hardware,roles}
+run.sh                 # interactive bootstrap
+nixos.png              # default wallpaper (copied to ~/Wallpapers by bootstrap)
+
+modules/
+  common/              # always-on system layer
+    base.nix           # bootloader, network, locales, audio, hyprland, ssh, nix.settings
+    users.nix          # the primary user (username from specialArgs)
+    packages.nix       # system packages; FOSS always + unfree gated on allowUnfree
+    stylix.nix         # system-level Stylix import + base16 palette
+    home-manager.nix   # wires home-manager.users.<username> = import ../home
+
+  hardware/            # opt-in per-machine
+    cpu-intel.nix      cpu-amd.nix
+    gpu-intel.nix      gpu-amd.nix      gpu-nvidia.nix
+    vm-hyperv.nix      vm-qemu.nix      vm-vmware.nix      vm-virtualbox.nix
+
+  roles/               # opt-in by deployment shape
+    headless.nix       # greetd hypr-headless, wayvnc, hypremote, virt-1 monitor
+    desktop.nix        # normal greetd login → Hyprland
+    laptop.nix         # tlp, lid switch, brightnessctl/light, powertop
+    multi-monitor.nix  # profile.monitorsLua option → ~/.config/hypr/monitors.lua
+    gaming.nix         # steam, gamemode, gamescope, mangohud, xpadneo, bluetooth
+    gaming-kiosk.nix   # imports gaming, replaces greetd with Steam Big Picture
+
+  home/                # user-level, applied through home-manager
+    default.nix        # imports the others, sets home.username/homeDirectory
+    hyprland.nix       # native-Lua hyprland config (sources ~/.config/hypr/monitors.lua)
+    waybar.nix         # bespoke milkoutside powerline bar
+    desktop.nix        # kitty / rofi / swaync
+    shell.nix          # zsh + cybr starship prompt
+    neovim.nix         # neovim package + ~/.config/nvim out-of-store symlink to LazyVim
+    cli.nix            # lsd / bat / fzf / zoxide / yazi / lazygit / …
+    nixcord.nix        # Vencord via nixcord home module (gated on allowUnfree)
+    stylix.nix         # opts the bespoke modules out of Stylix theming
+    colors.nix         # milkoutside palette consts
 ```
-
-## How the theming is split
-
-Stylix auto-enables every supported target. The hand-tuned modules (waybar,
-kitty, rofi, swaync, hyprland, neovim, starship, nixcord — well, nixcord stays
-on) are excluded in `home.nix` so Stylix doesn't fight their own configs. The
-upshot: one base16 palette in `stylix.nix` themes ~30 apps automatically;
-the six modules that already had bespoke milkoutside configs keep them.
 
 ## Bootstrap
 
-On a fresh NixOS install:
+On a fresh NixOS install (or any time you want to (re)configure a host):
 
 ```bash
 git clone <this repo> ~/Projects/nixos
@@ -60,50 +63,79 @@ cd ~/Projects/nixos
 ./run.sh
 ```
 
-`run.sh` is idempotent. It:
+`run.sh` is interactive and idempotent. It will:
 
-1. Copies `/etc/nixos/hardware-configuration.nix` into the repo (gitignored).
-2. Renames the old `/etc/nixos` to `/etc/nixos.bak.<timestamp>` and symlinks
-   `/etc/nixos` to this repo, so future `nixos-rebuild` runs read this tree.
-3. Adds the channels the imports need:
-   - `unstable` → `nixos-unstable` (referenced as `<unstable>` in
-     `configuration.nix`)
-   - `home-manager` → `release-26.05` (referenced as `<home-manager/nixos>`)
-   - `stylix` → `release-26.05` (referenced as `<stylix>`)
-   Nixcord is fetched inline via `builtins.fetchTarball`, so no channel.
-4. Clones the LazyVim starter into `~/dotfiles/nvim` and drops in the
-   milkoutside colorscheme plus a Mason-disabling shim (LSP servers come from
-   Nix, not Mason).
-5. Runs `sudo nixos-rebuild switch`.
+1. **Detect** CPU vendor (`/proc/cpuinfo`), GPU vendor (`lspci`),
+   virtualization (`systemd-detect-virt`), and battery presence. You confirm
+   or override each.
+2. **Ask** the deployment questions:
+   - **Hostname** and **primary username** (defaults to current values)
+   - **Session role** — `headless` (greetd boots straight into headless
+     Hyprland + wayvnc on :5900), `desktop` (normal Hyprland login), or
+     `gaming-kiosk` (auto-login into Steam Big Picture via gamescope)
+   - **Laptop power mgmt** (TLP, lid switch — suggested when a battery is
+     detected)
+   - **Multi-monitor** — writes a `profile.monitorsLua` stub you fill in after
+     first boot once you know your output names
+   - **Gaming extras** — Steam, gamemode, gamescope, mangohud, xpadneo
+     (Xbox-pad Bluetooth), Bluetooth stack
+   - **Allow proprietary software** — flips `nixpkgs.config.allowUnfree`
+3. **Generate** `/etc/nixos/flake.nix` (inputs this repo as a `path:` flake
+   input), `/etc/nixos/host.nix` (hostname + `allowUnfree`), and copies the
+   hardware config in place.
+4. **Build & switch** via `sudo nixos-rebuild switch --flake /etc/nixos#<hostname>`.
 
-Log out / reboot afterwards to land in the Hyprland session greetd starts.
-
-## Day-to-day
-
-Edit any `.nix` file in this repo, then:
-
-```bash
-sudo nixos-rebuild switch
-```
-
-To bump channels:
+Future rebuilds, no script needed:
 
 ```bash
-sudo nix-channel --update && sudo nixos-rebuild switch
+sudo nixos-rebuild switch --flake /etc/nixos#<hostname>
 ```
 
-LazyVim plugins update via `:Lazy sync` inside Neovim — the config at
-`~/dotfiles/nvim` is editable and not managed by Nix.
+Re-run `./run.sh` whenever you want to change role / hardware / unfree-policy
+selection — it overwrites `/etc/nixos/{flake,host}.nix` and preserves
+`hardware-configuration.nix`.
+
+## Hardware modules
+
+| Module | What it does |
+| --- | --- |
+| `cpu-intel` / `cpu-amd` | microcode + matching KVM module |
+| `gpu-intel` | `hardware.graphics` + `intel-media-driver`, `LIBVA_DRIVER_NAME=iHD` |
+| `gpu-amd` | `hardware.graphics` + `amdvlk` + ROCm OpenCL ICD |
+| `gpu-nvidia` | proprietary driver + `nvidia-drm modeset` + Wayland env vars (`GBM_BACKEND=nvidia-drm`, …). Requires `allowUnfree`. |
+| `vm-hyperv` | Hyper-V integration services (`virtualisation.hypervGuest.enable`) |
+| `vm-qemu` | `qemuGuest` + `spice-vdagentd` (clipboard, resolution sync) |
+| `vm-vmware` | `virtualisation.vmware.guest` (open-vm-tools) |
+| `vm-virtualbox` | guest additions with drag-and-drop |
+
+## Role modules
+
+| Module | Mutex group | Notes |
+| --- | --- | --- |
+| `headless` | session | wlroots headless backend, wayvnc on :5900, `hypremote` keeps virt-1 at 1920x1080@60 across rebuilds |
+| `desktop` | session | tuigreet → `uwsm start hyprland-uwsm.desktop` |
+| `gaming-kiosk` | session | imports `gaming`, greetd auto-logs into `gamescope --steam -- steam -gamepadui` |
+| `laptop` | orthogonal | TLP, suspend-on-lid, light/brightnessctl, powertop |
+| `multi-monitor` | orthogonal | adds `profile.monitorsLua` option; main hyprland.lua sources `~/.config/hypr/monitors.lua` via `pcall(dofile,...)` |
+| `gaming` | orthogonal | steam, gamescope, gamemode, mangohud, xpadneo, Bluetooth, blueman. Steam self-gates on `allowUnfree`. |
+
+## Theming
+
+Stylix drives every supported app from one base16 palette (in
+`modules/common/stylix.nix`). The hand-tuned modules with bespoke configs
+(waybar, kitty, rofi, swaync, hyprland, neovim, starship) are excluded in
+`modules/home/stylix.nix` so Stylix doesn't fight their own configs. Nixcord
+(Vencord) is auto-themed by the Stylix nixcord target.
 
 ## Notes
 
-- `hardware-configuration.nix` is **gitignored** — it's per-machine. The first
-  `./run.sh` on a new box copies it from `/etc/nixos`.
-- The user `simbaclaws` is hard-coded across `configuration.nix`, `home.nix`,
-  and the systemd units. Search/replace if forking.
-- SSH is key-only (`/home/simbaclaws/.ssh/authorized_keys`); the firewall opens
-  `22` and `5900` (the latter for wayvnc).
-- `sudo` is passwordless for `simbaclaws` (`wheel` + `NOPASSWD: ALL`).
-- The greetd `initial_session` runs a headless-friendly Hyprland (`WLR_BACKENDS=headless`,
-  `WLR_LIBINPUT_NO_DEVICES=1`) so the box comes up usable over VNC even with no
-  monitor attached.
+- The bootstrap warns about conflicting choices (`allowUnfree=false` +
+  NVIDIA → falls back to nouveau; `allowUnfree=false` + gaming → Steam won't
+  install; `allowUnfree=false` + `gaming-kiosk` → kiosk session can't start).
+- SSH is key-only. The user module looks for
+  `/home/<username>/.ssh/authorized_keys` and uses it if present.
+- Passwordless sudo for the primary user.
+- The flake inputs follow the same `nixpkgs` across all of `home-manager`,
+  `stylix`, and `nixcord` so the closure is consistent.
+- `hardware-configuration.nix` is machine-specific and lives only in
+  `/etc/nixos/` — never in the repo.

@@ -23,4 +23,3 @@
   yellow    = "f8e063";
   orange    = "ffad00";
 }
-

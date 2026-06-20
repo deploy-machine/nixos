@@ -8,7 +8,9 @@ in
   # back to hyprland.conf. home-manager's Lua generator still mistranslates the
   # hyprlang $variables, so we write the native Lua config directly instead of using
   # wayland.windowManager.hyprland.settings. Hyprland itself is enabled system-wide
-  # via programs.hyprland in configuration.nix; this only provides the config file.
+  # via programs.hyprland in modules/common/base.nix; this only provides the config
+  # file. The headless-only bits (virt-1 monitor, hypremote, wayvnc) live in
+  # modules/roles/headless.nix.
   xdg.configFile."hypr/hyprland.lua".text = ''
     -- milkoutside / cyberpunk Hyprland config (native Lua, Hyprland 0.55+)
 
@@ -26,6 +28,11 @@ in
       hl.exec_cmd("swaync")
     end)
     -- waybar + swaync autostart via their home-manager systemd user services.
+
+    ------------------------------------------------------------------- MONITORS
+    -- Per-host monitor layout (written by modules/roles/multi-monitor.nix).
+    -- pcall keeps single-screen and headless hosts happy when the file is absent.
+    pcall(dofile, (os.getenv("HOME") or "/home") .. "/.config/hypr/monitors.lua")
 
     ------------------------------------------------------------------- ENV VARS
     hl.env("XCURSOR_SIZE", "24")
@@ -186,4 +193,3 @@ in
     wl-clipboard
   ];
 }
-
