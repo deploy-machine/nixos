@@ -15,6 +15,12 @@ in
     openssh.authorizedKeys.keyFiles =
       lib.optional (builtins.pathExists authorizedKeysPath) authorizedKeysPath;
     packages = [ ];
+    # Keep the user's systemd manager alive at boot (i.e. without a login). This
+    # gives home-manager-<user>.service a live user-bus to talk to during
+    # nixos-rebuild switch even before the first graphical login — fixes the
+    # "DBus.Error.ServiceUnknown: The name is not activatable" failure that
+    # bites fresh installs.
+    linger = true;
   };
 
   security.sudo.extraRules = [{
@@ -24,13 +30,6 @@ in
       options = [ "NOPASSWD" ];
     }];
   }];
-
-  # Keep the user's systemd manager alive at boot (i.e. without a login). This
-  # gives home-manager-<user>.service a live user-bus to talk to during
-  # nixos-rebuild switch even before the first graphical login — fixes the
-  # "DBus.Error.ServiceUnknown: The name is not activatable" failure that
-  # bites fresh installs.
-  users.users.${username}.linger = true;
 
   # Mirror the user's nvim config into root's home so `sudo nvim` doesn't
   # surprise you with a fresh LazyVim setup.
