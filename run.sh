@@ -203,7 +203,13 @@ if [ ! -f "$NIXOS_DIR/hardware-configuration.nix" ]; then
 fi
 
 # --- 6. write /etc/nixos/host.nix (per-machine overrides) -------------------
-sudo tee "$NIXOS_DIR/host.nix" >/dev/null <<EOF
+# Only generate a starter host.nix on first run. Re-runs preserve any
+# hand-edits the user has made (monitor layouts, additional overrides, etc.).
+# To regenerate from scratch, delete /etc/nixos/host.nix first.
+if [ -f "$NIXOS_DIR/host.nix" ]; then
+  ok "Keeping existing $NIXOS_DIR/host.nix (delete it to regenerate)."
+else
+  sudo tee "$NIXOS_DIR/host.nix" >/dev/null <<EOF
 { ... }:
 {
   networking.hostName = "$hostname";
@@ -214,6 +220,8 @@ sudo tee "$NIXOS_DIR/host.nix" >/dev/null <<EOF
   nixpkgs.config.allowUnfree = $unfree;
 }
 EOF
+  ok "Wrote $NIXOS_DIR/host.nix"
+fi
 
 # --- 7. assemble the modules list and write /etc/nixos/flake.nix -----------
 modules=(
@@ -256,7 +264,7 @@ EOF
 EOF
 } | sudo tee "$NIXOS_DIR/flake.nix" >/dev/null
 
-ok "Wrote $NIXOS_DIR/flake.nix and $NIXOS_DIR/host.nix"
+ok "Wrote $NIXOS_DIR/flake.nix"
 
 # --- 8. wallpaper (referenced by modules/home/hyprland.nix's awww autostart)
 if [ -f "$REPO_DIR/nixos.png" ]; then
