@@ -5,6 +5,10 @@ in
 {
   users.users.${username} = {
     isNormalUser = true;
+    # Pin the UID so /run/user/<UID>/bus has a predictable path. Needed by
+    # the home-manager service env override below; also keeps the user's
+    # systemd runtime dir consistent across reinstalls.
+    uid = 1000;
     description = username;
     extraGroups = [ "networkmanager" "wheel" "input" "uinput" ];
     shell = pkgs.zsh;
