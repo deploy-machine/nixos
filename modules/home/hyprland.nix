@@ -112,8 +112,8 @@ in
     -- Smart gaps from the omarchy config: workspaces holding exactly one tiled
     -- or one fullscreen window drop the surrounding gap and border so the
     -- single window fills the screen edge-to-edge.
-    hl.workspace({ selector = "w[tv1]", rules = { gapsout = 0, gapsin = 0 } })
-    hl.workspace({ selector = "f[1]",    rules = { gapsout = 0, gapsin = 0 } })
+    hl.workspace_rule({ workspace = "w[tv1]", gaps_out = 0, gaps_in = 0 })
+    hl.workspace_rule({ workspace = "f[1]",   gaps_out = 0, gaps_in = 0 })
 
     ------------------------------------------------------------------ ANIMATIONS
     hl.curve("easeOutQuint",   { type = "bezier", points = { {0.23, 1},    {0.32, 1}    } })
@@ -146,7 +146,7 @@ in
     -- workspace to the other monitor). Workspace digits use plain US QWERTY
     -- numbers (omarchy's symbol keys map via a custom dvorak layout we don't
     -- ship — the index is the same, the physical key differs).
-    local mainMod = "SUPER"
+    local mainMod = "ALT"
 
     -- Programs
     hl.bind(mainMod .. " + Q",          hl.dsp.exec_cmd(terminal))
