@@ -308,7 +308,19 @@ fi
 ok "Enabling user lingering for $username so home-manager has a live DBus session ..."
 sudo loginctl enable-linger "$username"
 
-# --- 11. build (boot for first install, switch for reconfig) ---------------
+# --- 11. refresh the config-repo lock entry --------------------------------
+# /etc/nixos/flake.nix pins this repo as `path:$REPO_DIR`. nix locks path inputs
+# by narHash, so once a flake.lock exists, edits to the repo are invisible to
+# nixos-rebuild until the lock is refreshed. On reconfig runs we explicitly
+# bump just the config-repo input; on a fresh install there's no lock yet and
+# nixos-rebuild creates one.
+if [ -f "$NIXOS_DIR/flake.lock" ]; then
+  ok "Refreshing config-repo input in $NIXOS_DIR/flake.lock ..."
+  sudo nix --extra-experimental-features "nix-command flakes" \
+    flake update config-repo --flake "$NIXOS_DIR"
+fi
+
+# --- 12. build (boot for first install, switch for reconfig) ---------------
 # Fresh install on a TTY can't safely live-switch: home-manager-<user>.service
 # does `dconf write` for Stylix's GTK target, which needs the user's session
 # DBus bus to be up and addressable in the running environment. On a fresh
