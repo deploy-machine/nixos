@@ -71,6 +71,13 @@
     enableSSHSupport = true;
   };
 
+  # Required for home-manager's dconfSettings activation (Stylix's GTK target
+  # writes theme keys via `dconf write`). Without this, the first nixos-rebuild
+  # switch on a fresh install fails with
+  # "GDBus.Error.ServiceUnknown: The name is not activatable" because the
+  # dconf service has no DBus activation manifest installed.
+  programs.dconf.enable = true;
+
   services.openssh = {
     enable = true;
     settings.PasswordAuthentication = false;
