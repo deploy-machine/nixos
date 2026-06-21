@@ -15,7 +15,7 @@ in
     -- milkoutside / cyberpunk Hyprland config (native Lua, Hyprland 0.55+)
 
     local terminal    = "kitty"
-    local fileManager = "dolphin"
+    local fileManager = "thunar"
     local menu        = "rofi -show drun -show-icons"
 
     ----------------------------------------------------------------- AUTOSTART
@@ -246,6 +246,37 @@ in
     hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(),   { mouse = true })
     hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 
+    -- Screenshots (hyprshot wraps grim + slurp; defaults save to
+    -- $XDG_PICTURES_DIR and also copy to the clipboard).
+    --   ALT+S            region
+    --   ALT+SHIFT+S      whole monitor
+    --   ALT+CTRL+S       focused window
+    hl.bind(mainMod .. " + S",            hl.dsp.exec_cmd("hyprshot -m region"))
+    hl.bind(mainMod .. " + SHIFT + S",    hl.dsp.exec_cmd("hyprshot -m output"))
+    hl.bind(mainMod .. " + CTRL + S",     hl.dsp.exec_cmd("hyprshot -m window"))
+
+    -- Screen recording toggle. First press starts wf-recorder writing to
+    -- ~/Videos/<timestamp>.mp4; second press sends SIGINT so wf-recorder
+    -- finalises the file cleanly. mkdir -p covers a fresh home.
+    hl.bind(mainMod .. " + R", hl.dsp.exec_cmd(
+        'sh -c "pgrep wf-recorder >/dev/null && pkill -SIGINT wf-recorder || ' ..
+        '(mkdir -p $HOME/Videos && wf-recorder -f $HOME/Videos/$(date +%F-%H%M%S).mp4)"'
+    ))
+
+    -- Color picker (eyedropper). -a copies the hex code to the clipboard
+    -- via wl-copy and exits.
+    hl.bind(mainMod .. " + SHIFT + C", hl.dsp.exec_cmd("hyprpicker -a"))
+
+    -- Clipboard history. cliphist's wl-paste watcher is started by the
+    -- home-manager service; this just fans the list through rofi.
+    hl.bind(mainMod .. " + SHIFT + V", hl.dsp.exec_cmd(
+        "sh -c 'cliphist list | rofi -dmenu | cliphist decode | wl-copy'"
+    ))
+
+    -- Manual screen lock. hypridle also calls hyprlock on the 10-minute
+    -- idle listener; this is the explicit "I'm leaving" hotkey.
+    hl.bind(mainMod .. " + CTRL + L", hl.dsp.exec_cmd("hyprlock"))
+
     hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+"), { locked = true, repeating = true })
     hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"),      { locked = true, repeating = true })
     hl.bind("XF86AudioMute",        hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"),     { locked = true })
@@ -276,7 +307,6 @@ in
     playerctl
     brightnessctl
     networkmanagerapplet
-    kdePackages.dolphin
     wl-clipboard
   ];
 }
