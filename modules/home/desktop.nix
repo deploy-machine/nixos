@@ -2,9 +2,14 @@
 let c = import ./colors.nix;
 in
 {
-  # ---------------- desktop utility packages ----------------
+  # ---------------- desktop packages ----------------
   # Default apps wired in via xdg.mimeApps below, plus the Wayland screenshot
-  # / recording / picker / mixer toolchain bound to keys in hyprland.nix.
+  # / recording / picker / mixer toolchain bound to keys in hyprland.nix, and
+  # the "every desktop should have this" GUI set. Two guards on the latter:
+  #   - unrar is unfree; skipped on FOSS-only hosts.
+  #   - onlyoffice + tutanota-desktop are upstream-binary x86_64-only;
+  #     skipped on aarch64 (e.g. M1 / Asahi). Pick libreoffice-fresh /
+  #     thunderbird in a host override if you need replacements there.
   home.packages = with pkgs; [
     mpv             # default video + audio player
     imv             # wayland-native image viewer
@@ -19,15 +24,7 @@ in
 
     pavucontrol         # per-app audio mixer
     gnome-disk-utility  # partition / format / SMART (binary is `gnome-disks`)
-  ];
 
-  # ---------------- gui applications ----------------
-  # Round out the "every desktop should have this" set. Two guards:
-  #   - unrar is unfree; skipped on FOSS-only hosts.
-  #   - onlyoffice + tutanota-desktop are upstream-binary x86_64-only;
-  #     skipped on aarch64 (e.g. M1 / Asahi). Pick libreoffice-fresh /
-  #     thunderbird in a host override if you need replacements there.
-  home.packages = with pkgs; [
     # Office / productivity
     gnome-calendar             # ICS + Evolution data server calendar
     qalculate-gtk              # full-featured desktop calculator
