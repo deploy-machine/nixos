@@ -238,13 +238,13 @@ in
     local mainMod = "ALT"
 
     -- Programs (single-letter mnemonics: Q=quit, T=terminal, R=rofi,
-    -- F=files, B=browser, D=discord, A=audio, P=password, N=notifications,
-    -- C=color picker, S=screenshot, M=maximize, V=float).
+    -- B=browser, D=discord, A=audio, P=password, N=notifications,
+    -- C=color picker, S=screenshot, F=fullscreen, V=float; SHIFT+F=files).
     hl.bind(mainMod .. " + Q",          hl.dsp.window.close())                          -- Quit focused window
     hl.bind(mainMod .. " + SHIFT + Q",  hl.dsp.exit())                                  -- Quit Hyprland session
     hl.bind(mainMod .. " + T",          hl.dsp.exec_cmd(terminal))                      -- Terminal
     hl.bind(mainMod .. " + R",          hl.dsp.exec_cmd(menu))                          -- Rofi launcher
-    hl.bind(mainMod .. " + F",          hl.dsp.exec_cmd(fileManager))                   -- File manager
+    hl.bind(mainMod .. " + SHIFT + F",  hl.dsp.exec_cmd(fileManager))                   -- File manager
     hl.bind(mainMod .. " + B",          hl.dsp.exec_cmd("chromium"))                    -- Browser
     hl.bind(mainMod .. " + D",          hl.dsp.exec_cmd("vesktop"))                     -- Discord (nixcord)
     hl.bind(mainMod .. " + A",          hl.dsp.exec_cmd("pavucontrol"))                 -- Audio mixer
@@ -253,7 +253,7 @@ in
     hl.bind(mainMod .. " + C",          hl.dsp.exec_cmd("hyprpicker -a"))               -- Color picker
 
     -- Window management
-    hl.bind(mainMod .. " + M",          hl.dsp.window.fullscreen())                     -- Maximize / fullscreen
+    hl.bind(mainMod .. " + F",          hl.dsp.window.fullscreen())                     -- Fullscreen
     hl.bind(mainMod .. " + V",          hl.dsp.window.float({ action = "toggle" }))     -- toggle float
     hl.bind(mainMod .. " + SHIFT + T",  hl.dsp.layout("togglesplit"))                   -- swap dwindle split axis
 
