@@ -237,17 +237,25 @@ in
     -- becomes `return hl.dispatch(movewindow l)` and silently errors out.
     local mainMod = "ALT"
 
-    -- Programs
-    hl.bind(mainMod .. " + Q",          hl.dsp.exec_cmd(terminal))
-    hl.bind(mainMod .. " + C",          hl.dsp.window.close())
-    hl.bind(mainMod .. " + SHIFT + M",  hl.dsp.exit())
-    hl.bind(mainMod .. " + E",          hl.dsp.exec_cmd(fileManager))
-    hl.bind(mainMod .. " + V",          hl.dsp.window.float({ action = "toggle" }))
-    hl.bind(mainMod .. " + D",          hl.dsp.exec_cmd(menu))
-    hl.bind(mainMod .. " + P",          hl.dsp.window.pseudo())
-    -- togglesplit moved off ALT+SHIFT+J so the move-down bind below can claim it.
-    hl.bind(mainMod .. " + T",          hl.dsp.layout("togglesplit"))
-    hl.bind(mainMod .. " + F",          hl.dsp.window.fullscreen())
+    -- Programs (single-letter mnemonics: Q=quit, T=terminal, R=rofi,
+    -- F=files, B=browser, D=discord, A=audio, P=password, N=notifications,
+    -- C=color picker, S=screenshot, M=maximize, V=float).
+    hl.bind(mainMod .. " + Q",          hl.dsp.window.close())                          -- Quit focused window
+    hl.bind(mainMod .. " + SHIFT + Q",  hl.dsp.exit())                                  -- Quit Hyprland session
+    hl.bind(mainMod .. " + T",          hl.dsp.exec_cmd(terminal))                      -- Terminal
+    hl.bind(mainMod .. " + R",          hl.dsp.exec_cmd(menu))                          -- Rofi launcher
+    hl.bind(mainMod .. " + F",          hl.dsp.exec_cmd(fileManager))                   -- File manager
+    hl.bind(mainMod .. " + B",          hl.dsp.exec_cmd("chromium"))                    -- Browser
+    hl.bind(mainMod .. " + D",          hl.dsp.exec_cmd("vesktop"))                     -- Discord (nixcord)
+    hl.bind(mainMod .. " + A",          hl.dsp.exec_cmd("pavucontrol"))                 -- Audio mixer
+    hl.bind(mainMod .. " + P",          hl.dsp.exec_cmd("bitwarden"))                   -- Password manager
+    hl.bind(mainMod .. " + N",          hl.dsp.exec_cmd("swaync-client -t -sw"))        -- Notification center toggle
+    hl.bind(mainMod .. " + C",          hl.dsp.exec_cmd("hyprpicker -a"))               -- Color picker
+
+    -- Window management
+    hl.bind(mainMod .. " + M",          hl.dsp.window.fullscreen())                     -- Maximize / fullscreen
+    hl.bind(mainMod .. " + V",          hl.dsp.window.float({ action = "toggle" }))     -- toggle float
+    hl.bind(mainMod .. " + SHIFT + T",  hl.dsp.layout("togglesplit"))                   -- swap dwindle split axis
 
     -- Focus: vim-motion (h/j/k/l) plus arrow-key fallback.
     local function focus(key, dir)
@@ -293,17 +301,13 @@ in
     hl.bind(mainMod .. " + SHIFT + S",    hl.dsp.exec_cmd("${screenshotScript}/bin/screenshot output"))
     hl.bind(mainMod .. " + CTRL + S",     hl.dsp.exec_cmd("${screenshotScript}/bin/screenshot window"))
 
-    -- Screen recording toggle. First press starts wf-recorder writing to
-    -- ~/Videos/<timestamp>.mp4; second press sends SIGINT so wf-recorder
-    -- finalises the file cleanly. mkdir -p covers a fresh home.
-    hl.bind(mainMod .. " + R", hl.dsp.exec_cmd(
+    -- Screen recording toggle (R is rofi, so this lives on SHIFT+R). First
+    -- press starts wf-recorder writing to ~/Videos/<timestamp>.mp4; second
+    -- press sends SIGINT so wf-recorder finalises the file cleanly.
+    hl.bind(mainMod .. " + SHIFT + R", hl.dsp.exec_cmd(
         'sh -c "pgrep wf-recorder >/dev/null && pkill -SIGINT wf-recorder || ' ..
         '(mkdir -p $HOME/Videos && wf-recorder -f $HOME/Videos/$(date +%F-%H%M%S).mp4)"'
     ))
-
-    -- Color picker (eyedropper). -a copies the hex code to the clipboard
-    -- via wl-copy and exits.
-    hl.bind(mainMod .. " + SHIFT + C", hl.dsp.exec_cmd("hyprpicker -a"))
 
     -- Clipboard history. cliphist's wl-paste watcher is started by the
     -- home-manager service; this just fans the list through rofi.
