@@ -116,7 +116,14 @@ if [ "$role" = "headless" ]; then
   multi_monitor=n
   echo "  (skipping multi-monitor — headless role)"
 else
-  if ask_yn "Multi-monitor (writes a profile.monitorsLua stub you edit post-boot)?" n; then
+  # If a previous run.sh wrote a host.nix that's setting profile.monitorsLua,
+  # default to y — otherwise the regenerated flake.nix would drop the
+  # multi-monitor module and the preserved host.nix would no longer evaluate.
+  mm_default=n
+  if [ -f "$NIXOS_DIR/host.nix" ] && grep -q '^\s*profile\.monitorsLua\b\|profile = {' "$NIXOS_DIR/host.nix" 2>/dev/null; then
+    mm_default=y
+  fi
+  if ask_yn "Multi-monitor (writes a profile.monitorsLua stub you edit post-boot)?" "$mm_default"; then
     multi_monitor=y
   else
     multi_monitor=n

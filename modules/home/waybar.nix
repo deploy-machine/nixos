@@ -95,11 +95,11 @@ in
     "hyprland/workspaces": {
       "disable-scroll": true,
       "active-only": false,
-      "all-outputs": true,
+      "all-outputs": false,
       "enable-bar-scroll": true,
-      "format": "{id}",
-      "on-scroll-up": "hyprctl dispatch workspace r-1",
-      "on-scroll-down": "hyprctl dispatch workspace r+1",
+      "format": "{name}",
+      "on-scroll-up":   "hyprctl dispatch 'hl.dsp.focus({workspace=\"e-1\"})'",
+      "on-scroll-down": "hyprctl dispatch 'hl.dsp.focus({workspace=\"e+1\"})'",
       "on-click": "activate",
       "sort-by-number": true
     },

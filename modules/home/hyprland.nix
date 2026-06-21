@@ -2,28 +2,6 @@
 let
   c = import ./colors.nix;
   wallpaper = "${config.home.homeDirectory}/Wallpapers/nixos.png";
-
-  # zjeffer/split-monitor-workspaces — gives each monitor its own 1..N workspace
-  # set (omarchy-style multi-monitor). Tags track Hyprland releases; pin to the
-  # tag matching pkgs.hyprland so the plugin ABI lines up. Built with
-  # hyprland.stdenv so the C++23 ABI/gcc version matches the compositor.
-  # Uses meson (the upstream Makefile lacks an install target and chokes inside
-  # the nix sandbox — meson.build is the path the project's own flake takes).
-  split-monitor-workspaces = pkgs.hyprland.stdenv.mkDerivation rec {
-    pname   = "hyprland-split-monitor-workspaces";
-    version = "0.55.2";
-    src = pkgs.fetchFromGitHub {
-      owner  = "zjeffer";
-      repo   = "split-monitor-workspaces";
-      rev    = "v${version}";
-      sha256 = "1qg682cbn6670zq8vf9k8add5rng4iczxsdgvv7wbl22n9s7x22f";
-    };
-    nativeBuildInputs = with pkgs; [ meson ninja pkg-config ];
-    # Lua 5.4 is required: src/helpers.cpp uses lua_isinteger which only exists
-    # in Lua >= 5.3. The bare `lua` attr in nixpkgs still resolves to 5.2.
-    buildInputs       = [ pkgs.hyprland pkgs.lua5_4 pkgs.pango pkgs.cairo ]
-                        ++ pkgs.hyprland.buildInputs;
-  };
 in
 {
   # Hyprland 0.55 loads ~/.config/hypr/hyprland.lua (native Lua) and does NOT fall
@@ -56,25 +34,61 @@ in
     -- pcall keeps single-screen and headless hosts happy when the file is absent.
     pcall(dofile, (os.getenv("HOME") or "/home") .. "/.config/hypr/monitors.lua")
 
+    --------------------------------------------------- WORKSPACE PINNING (AUTO)
+    -- Pin global workspaces 1-10 to monitors based on how many are connected.
+    -- Monitors are sorted left → right by x position; ALT+N in the keybinds
+    -- section below focuses workspace N, which makes focus jump to whichever
+    -- monitor owns it. persistent=true keeps each waybar's button row stable
+    -- even when the workspace is empty.
+    --
+    --   1 monitor  → [1..10]                       on the one monitor
+    --   2 monitors → [1..5] | [6..10]
+    --   3 monitors → [1..3] | [4..6] | [7..9]      (ws 10 left unpinned)
+    --   4+         → round-robin (1→m1, 2→m2, …)
+    --
+    -- Per-host overrides: add extra hl.workspace_rule calls in monitors.lua
+    -- after this runs; last write wins for any given workspace.
+    local function autoPinWorkspaces()
+        local monitors = hl.get_monitors()
+        if not monitors or #monitors == 0 then return end
+        table.sort(monitors, function(a, b) return (a.x or 0) < (b.x or 0) end)
+
+        local n = #monitors
+        local layout
+        if     n == 1 then layout = { {1, 2, 3, 4, 5, 6, 7, 8, 9, 10} }
+        elseif n == 2 then layout = { {1, 2, 3, 4, 5}, {6, 7, 8, 9, 10} }
+        elseif n == 3 then layout = { {1, 2, 3}, {4, 5, 6}, {7, 8, 9} }
+        else
+            layout = {}
+            for i = 1, n do layout[i] = {} end
+            for w = 1, 10 do
+                table.insert(layout[((w - 1) % n) + 1], w)
+            end
+        end
+
+        for i, mon in ipairs(monitors) do
+            local list = layout[i] or {}
+            for _, w in ipairs(list) do
+                hl.workspace_rule({
+                    workspace  = tostring(w),
+                    monitor    = mon.name,
+                    persistent = true,
+                    default    = (w == list[1]),
+                })
+            end
+        end
+    end
+
+    -- Call inline so `hyprctl reload` re-pins immediately (monitors are already
+    -- up). The event hooks below cover cold boot (monitors come up after the
+    -- config parses) and hot-plug.
+    autoPinWorkspaces()
+    hl.on("monitor.added",   autoPinWorkspaces)
+    hl.on("monitor.removed", autoPinWorkspaces)
+
     ------------------------------------------------------------------- ENV VARS
     hl.env("XCURSOR_SIZE", "24")
     hl.env("HYPRCURSOR_SIZE", "24")
-
-    --------------------------------------------------------------------- PLUGINS
-    -- split-monitor-workspaces: each monitor has its own 1..N workspace set.
-    -- Built from zjeffer/split-monitor-workspaces at v0.55.2 (see hyprland.nix
-    -- let-block). Loaded BEFORE any binds/dispatchers that reference it.
-    hl.plugin.load("${split-monitor-workspaces}/lib/libsplit-monitor-workspaces.so")
-    hl.config({
-        plugin = {
-            ["split-monitor-workspaces"] = {
-                count                        = 10,
-                keep_focused                 = 0,
-                enable_notifications         = 0,
-                enable_persistent_workspaces = 1,
-            },
-        },
-    })
 
     -------------------------------------------------------------- LOOK AND FEEL
     hl.config({
@@ -179,11 +193,11 @@ in
     hl.device({ name = "epic-mouse-v1", sensitivity = -0.5 })
 
     ------------------------------------------------------------------ KEYBINDINGS
-    -- Adopted from the omarchy hyprland setup: SUPER as main mod, vim-motion
-    -- focus, fluid multi-monitor workspaces (Super+M throws the current
-    -- workspace to the other monitor). Workspace digits use plain US QWERTY
-    -- numbers (omarchy's symbol keys map via a custom dvorak layout we don't
-    -- ship — the index is the same, the physical key differs).
+    -- Adopted from the omarchy hyprland setup, but everything goes through
+    -- Hyprland's native Lua dispatchers (hl.dsp.*) — Hyprland 0.55's
+    -- `hyprctl dispatch` evaluates its argument as Lua (`hl.dispatch(<arg>)`),
+    -- so shelling out with `hl.dsp.exec_cmd("hyprctl dispatch movewindow l")`
+    -- becomes `return hl.dispatch(movewindow l)` and silently errors out.
     local mainMod = "ALT"
 
     -- Programs
@@ -194,35 +208,37 @@ in
     hl.bind(mainMod .. " + V",          hl.dsp.window.float({ action = "toggle" }))
     hl.bind(mainMod .. " + D",          hl.dsp.exec_cmd(menu))
     hl.bind(mainMod .. " + P",          hl.dsp.window.pseudo())
-    hl.bind(mainMod .. " + SHIFT + J",  hl.dsp.layout("togglesplit"))
+    -- togglesplit moved off ALT+SHIFT+J so the move-down bind below can claim it.
+    hl.bind(mainMod .. " + T",          hl.dsp.layout("togglesplit"))
     hl.bind(mainMod .. " + F",          hl.dsp.window.fullscreen())
 
-    -- Move the focused window between monitors. split-monitor-workspaces'
-    -- split-changemonitor uses spatial position (prev/next = left/right) so
-    -- it matches whatever physical layout monitors.lua declares.
-    hl.bind(mainMod .. " + SHIFT + h", hl.dsp.exec_cmd("hyprctl dispatch split-changemonitor prev"))
-    hl.bind(mainMod .. " + SHIFT + l", hl.dsp.exec_cmd("hyprctl dispatch split-changemonitor next"))
+    -- Focus: vim-motion (h/j/k/l) plus arrow-key fallback.
+    local function focus(key, dir)
+        hl.bind(mainMod .. " + " .. key, hl.dsp.focus({ direction = dir }))
+    end
+    focus("h", "l"); focus("l", "r"); focus("k", "u"); focus("j", "d")
+    focus("left", "l"); focus("right", "r"); focus("up", "u"); focus("down", "d")
 
-    -- Focus: vim-motion (h/j/k/l) like omarchy, plus arrow-key fallback.
-    hl.bind(mainMod .. " + h",     hl.dsp.focus({ direction = "left" }))
-    hl.bind(mainMod .. " + l",     hl.dsp.focus({ direction = "right" }))
-    hl.bind(mainMod .. " + k",     hl.dsp.focus({ direction = "up" }))
-    hl.bind(mainMod .. " + j",     hl.dsp.focus({ direction = "down" }))
-    hl.bind(mainMod .. " + left",  hl.dsp.focus({ direction = "left" }))
-    hl.bind(mainMod .. " + right", hl.dsp.focus({ direction = "right" }))
-    hl.bind(mainMod .. " + up",    hl.dsp.focus({ direction = "up" }))
-    hl.bind(mainMod .. " + down",  hl.dsp.focus({ direction = "down" }))
+    -- Move: ALT + SHIFT + dir slides the focused window inside the current
+    -- monitor. Cross-monitor "throw" is implicit via the pinned workspace
+    -- layout — ALT+SHIFT+N below moves the window to ws N, which lives on
+    -- whichever monitor owns N.
+    local function mv(key, dir)
+        hl.bind(mainMod .. " + SHIFT + " .. key, hl.dsp.window.move({ direction = dir }))
+    end
+    mv("h", "l"); mv("l", "r"); mv("k", "u"); mv("j", "d")
+    mv("left", "l"); mv("right", "r"); mv("up", "u"); mv("down", "d")
 
-    -- Workspaces 1-10 (0 = ws 10), per-monitor via split-monitor-workspaces.
-    -- split-workspace / split-movetoworkspacesilent take the SAME 1..count
-    -- index but resolve it relative to the focused monitor's workspace bank.
+    -- Workspaces 1-10 (0 = ws 10). Workspaces are globally numbered and pinned
+    -- to specific monitors via hl.workspace_rule in monitors.lua (per-host).
+    -- ALT+N focuses ws N — focus jumps to whichever monitor owns it.
     for i = 1, 10 do
         local key = i % 10
-        hl.bind(mainMod .. " + " .. key,         hl.dsp.exec_cmd("hyprctl dispatch split-workspace " .. i))
-        hl.bind(mainMod .. " + SHIFT + " .. key, hl.dsp.exec_cmd("hyprctl dispatch split-movetoworkspacesilent " .. i))
+        hl.bind(mainMod .. " + " .. key,         hl.dsp.focus({ workspace = i }))
+        hl.bind(mainMod .. " + SHIFT + " .. key, hl.dsp.window.move({ workspace = i }))
     end
 
-    -- Scroll through workspaces with Super + scroll wheel.
+    -- Scroll through workspaces with ALT + scroll wheel.
     hl.bind(mainMod .. " + mouse_down", hl.dsp.focus({ workspace = "e+1" }))
     hl.bind(mainMod .. " + mouse_up",   hl.dsp.focus({ workspace = "e-1" }))
 
