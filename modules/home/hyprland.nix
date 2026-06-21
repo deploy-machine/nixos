@@ -2,6 +2,43 @@
 let
   c = import ./colors.nix;
   wallpaper = "${config.home.homeDirectory}/Wallpapers/nixos.png";
+
+  # `screenshot <region|window|output>` — hyprshot captures pixels to stdout
+  # (--raw), satty pops up an annotate/crop UI, on save it writes the file +
+  # copies to the clipboard. After save, notify-send blocks on --wait so a
+  # click on "Open" or "Show in Files" fires xdg-open. This replaces the
+  # old hyprshot-direct bindings whose notification thumbnail wasn't
+  # clickable.
+  screenshotScript = pkgs.writeShellApplication {
+    name = "screenshot";
+    runtimeInputs = with pkgs; [
+      hyprshot satty wl-clipboard libnotify xdg-utils coreutils
+    ];
+    text = ''
+      MODE="''${1:-region}"
+      TS="$(date +%Y%m%d_%H%M%S)"
+      OUT="$HOME/Pictures/screenshot_$TS.png"
+      mkdir -p "$HOME/Pictures"
+
+      hyprshot -m "$MODE" --raw | satty \
+        --filename - \
+        --output-filename "$OUT" \
+        --copy-command wl-copy \
+        --early-exit \
+        --actions-on-enter save-to-clipboard
+
+      [ -f "$OUT" ] || exit 0
+
+      ACTION=$(notify-send -a Screenshot -i "$OUT" \
+        --action="open=Open" --action="reveal=Show in Files" \
+        --wait \
+        "Screenshot saved" "$OUT")
+      case "$ACTION" in
+        open)   xdg-open "$OUT" ;;
+        reveal) xdg-open "$(dirname "$OUT")" ;;
+      esac
+    '';
+  };
 in
 {
   # Hyprland 0.55 loads ~/.config/hypr/hyprland.lua (native Lua) and does NOT fall
@@ -246,14 +283,15 @@ in
     hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(),   { mouse = true })
     hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 
-    -- Screenshots (hyprshot wraps grim + slurp; defaults save to
-    -- $XDG_PICTURES_DIR and also copy to the clipboard).
+    -- Screenshots: hyprshot --raw -> satty (annotate UI) -> ~/Pictures/
+    -- and clipboard, then a click-to-open notification. Hit Enter inside
+    -- satty to save without annotating.
     --   ALT+S            region
     --   ALT+SHIFT+S      whole monitor
     --   ALT+CTRL+S       focused window
-    hl.bind(mainMod .. " + S",            hl.dsp.exec_cmd("hyprshot -m region"))
-    hl.bind(mainMod .. " + SHIFT + S",    hl.dsp.exec_cmd("hyprshot -m output"))
-    hl.bind(mainMod .. " + CTRL + S",     hl.dsp.exec_cmd("hyprshot -m window"))
+    hl.bind(mainMod .. " + S",            hl.dsp.exec_cmd("${screenshotScript}/bin/screenshot region"))
+    hl.bind(mainMod .. " + SHIFT + S",    hl.dsp.exec_cmd("${screenshotScript}/bin/screenshot output"))
+    hl.bind(mainMod .. " + CTRL + S",     hl.dsp.exec_cmd("${screenshotScript}/bin/screenshot window"))
 
     -- Screen recording toggle. First press starts wf-recorder writing to
     -- ~/Videos/<timestamp>.mp4; second press sends SIGINT so wf-recorder
