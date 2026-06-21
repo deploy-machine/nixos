@@ -92,6 +92,10 @@
   # matters when the relevant package is actually pulled in.
   nixpkgs.config.chromium.commandLineArgs = "--enable-features=UseOzonePlatform --ozone-platform=wayland";
 
+  # tutanota-desktop bundles an EOL Electron upstream; same risk profile as
+  # using their Windows / macOS builds, which we already do.
+  nixpkgs.config.permittedInsecurePackages = [ "electron-39.8.10" ];
+
   # Pinned to the install's release. Don't bump without reading the docs —
   # gates default values of stateful options.
   system.stateVersion = "26.05";
