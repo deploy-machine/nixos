@@ -44,6 +44,17 @@
       size = 24;
     };
 
+    # Icons: Papirus with the pink folder accent built in at the derivation
+    # level (papirus-folders -C pink) so the folders match the milkoutside
+    # red/pink (base08 = f93a82). Stylix itself doesn't theme icons; this
+    # writes them into the GTK + Qt config.
+    icons = {
+      enable = true;
+      package = pkgs.papirus-icon-theme.override { color = "pink"; };
+      dark = "Papirus-Dark";
+      light = "Papirus-Light";
+    };
+
     opacity.terminal = 0.92;
   };
 }

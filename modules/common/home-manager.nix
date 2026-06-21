@@ -7,6 +7,12 @@
     useUserPackages = true;
     extraSpecialArgs = { inherit inputs username hostname; };
     users.${username} = { imports = [ ../home ]; };
+    # Pre-existing user files (e.g. ~/.config/mimeapps.list written by
+    # xdg-utils or chromium before HM took over) get renamed to <file>.hm-bak
+    # instead of aborting activation. Without this, a single stray file is
+    # enough to roll back the entire generation — no waybar override, no
+    # polkit agent, no dconf icon theme selection, etc.
+    backupFileExtension = "hm-bak";
   };
 
   # home-manager-<user>.service runs `dconf write` for stylix's GTK theming.
