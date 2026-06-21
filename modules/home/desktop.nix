@@ -51,7 +51,7 @@ in
   ] ++ lib.optionals pkgs.stdenv.hostPlatform.isx86_64 [
     onlyoffice-desktopeditors  # docx/xlsx/pptx editor (x86_64 binary upstream)
     tutanota-desktop           # encrypted email (x86_64 Electron upstream)
-  ] ++ lib.optionals config.nixpkgs.config.allowUnfree [
+  ] ++ lib.optionals (pkgs.config.allowUnfree or false) [
     unrar                      # .rar extraction (unfree license)
   ];
 
