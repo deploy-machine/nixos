@@ -21,6 +21,43 @@ in
     gnome-disk-utility  # partition / format / SMART (binary is `gnome-disks`)
   ];
 
+  # ---------------- gui applications ----------------
+  # Round out the "every desktop should have this" set. Two guards:
+  #   - unrar is unfree; skipped on FOSS-only hosts.
+  #   - onlyoffice + tutanota-desktop are upstream-binary x86_64-only;
+  #     skipped on aarch64 (e.g. M1 / Asahi). Pick libreoffice-fresh /
+  #     thunderbird in a host override if you need replacements there.
+  home.packages = with pkgs; [
+    # Office / productivity
+    gnome-calendar             # ICS + Evolution data server calendar
+    qalculate-gtk              # full-featured desktop calculator
+    gnome-text-editor          # GUI text editor (mime default for text/plain)
+
+    # Security
+    bitwarden-desktop          # password manager
+
+    # System / files
+    baobab                     # GUI disk-usage analyzer
+    mission-center             # GUI system monitor (CPU/RAM/GPU/net)
+    satty                      # screenshot annotator (used by the screenshot wrapper)
+    p7zip zip                  # archive backends for thunar-archive-plugin
+
+    # Media creation / editing
+    gimp                       # raster image editor
+    inkscape                   # vector image editor
+    blender                    # 3D / animation / video sequencer
+    obs-studio                 # screen recording + streaming
+    audacity                   # audio editor
+
+    # Media download
+    yt-dlp                     # youtube + a thousand other sites
+  ] ++ lib.optionals pkgs.stdenv.hostPlatform.isx86_64 [
+    onlyoffice-desktopeditors  # docx/xlsx/pptx editor (x86_64 binary upstream)
+    tutanota-desktop           # encrypted email (x86_64 Electron upstream)
+  ] ++ lib.optionals config.nixpkgs.config.allowUnfree [
+    unrar                      # .rar extraction (unfree license)
+  ];
+
   # Make sure ~/Pictures, ~/Videos, ~/Documents etc. exist — hyprshot
   # writes to $XDG_PICTURES_DIR, wf-recorder writes to ~/Videos in the bind.
   xdg.userDirs = {
@@ -270,6 +307,13 @@ in
     };
   };
 
+  # ---------------- blueman tray applet ----------------
+  # The system role enables services.blueman (the bluetoothd front-end);
+  # this is the user-facing tray applet that surfaces pairing requests and
+  # device toggles. Without it, the bluetoothd daemon runs but you have no
+  # GUI handle on it from Hyprland.
+  services.blueman-applet.enable = true;
+
   # ---------------- cliphist (clipboard history) ----------------
   # wl-paste --watch cliphist store runs as a user service. Recall via
   # ALT+SHIFT+V (piped through rofi in hyprland.nix).
@@ -296,6 +340,7 @@ in
       av    = "mpv.desktop";
       web   = "chromium-browser.desktop";
       files = "thunar.desktop";
+      text  = "org.gnome.TextEditor.desktop";
     in {
       "inode/directory"          = files;
 
@@ -304,6 +349,11 @@ in
       "x-scheme-handler/about"   = web;
       "x-scheme-handler/unknown" = web;
       "text/html"                = web;
+
+      "text/plain"               = text;
+      "text/markdown"            = text;
+      "application/json"         = text;
+      "application/xml"          = text;
 
       "application/pdf"          = pdf;
 
