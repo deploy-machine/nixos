@@ -9,6 +9,45 @@
 # bar CSS doesn't override this one.
 { config, pkgs, ... }:
 let
+  # waybar 0.15.0 (latest tag) sends `dispatch workspace <id>` over the IPC
+  # socket on workspace-button clicks. Hyprland 0.55+ evaluates that as Lua
+  # (`return hl.dispatch(workspace 1)`), which fails to parse — clicks are
+  # silently dropped. Upstream commit 3547949c (2026-04-29) routes through
+  # the new hl.dsp API when the Lua protocol is detected. Pin to that commit
+  # until the next tagged release ships it.
+  #
+  # Master's subprojects/libcava.wrap bumped the cava subproject from
+  # v0.10.7-beta → 0.10.7 (same LukashonakV/cava fork nixpkgs already uses for
+  # waybar; only the tag moves). Nixpkgs' postUnpack still drops cava into the
+  # 0.10.7-beta path, so meson can't resolve it — override postUnpack to feed
+  # meson the directory it actually expects.
+  cavaSrc = pkgs.fetchFromGitHub {
+    owner = "LukashonakV";
+    repo  = "cava";
+    tag   = "0.10.7";
+    hash  = "sha256-zkyj1vBzHtoypX4Bxdh1Vmwh967DKKxN751v79hzmgQ=";
+  };
+  waybarPkg = pkgs.waybar.overrideAttrs (_old: {
+    version = "0.15.0-unstable-2026-04-29";
+    src = pkgs.fetchFromGitHub {
+      owner = "Alexays";
+      repo  = "Waybar";
+      rev   = "3547949cb4fa650f46265b35ad4eae7ed741b6ad";
+      hash  = "sha256-p5iqMo4JPhbukRqPlYjciaU89wRPDmWSUY9NkxywI+k=";
+    };
+    postUnpack = ''
+      pushd "$sourceRoot"
+      cp -R --no-preserve=mode,ownership ${cavaSrc} subprojects/cava-0.10.7
+      patchShebangs .
+      popd
+    '';
+    # versionCheckHook runs `waybar --version` and expects to see the version
+    # string we declared above. Upstream hasn't bumped the in-source version
+    # past 0.15.0 on master, so the binary still prints "Waybar v0.15.0" and
+    # the check fails. Skip it; we know exactly which commit we built.
+    doInstallCheck = false;
+  });
+
   # 14x31 triangular powerline separators (shape copied from cybr-waybar/svg).
   mkArrow = name: fill: dir:
     pkgs.writeText "waybar-${name}.svg" (
@@ -25,10 +64,10 @@ let
   gr0R = mkArrow "gr0-right" "#92cf9c" "right";
 in
 {
-  home.packages = with pkgs; [
-    waybar
-    pavucontrol            # pulseaudio module on-click
-    networkmanagerapplet   # provides nm-connection-editor for network on-click
+  home.packages = [
+    waybarPkg
+    pkgs.pavucontrol            # pulseaudio module on-click
+    pkgs.networkmanagerapplet   # provides nm-connection-editor for network on-click
   ];
 
   xdg.configFile."waybar/config.jsonc".text = ''
@@ -642,7 +681,7 @@ window#waybar.hidden {
       After = [ "graphical-session.target" ];
     };
     Service = {
-      ExecStart = "${pkgs.waybar}/bin/waybar";
+      ExecStart = "${waybarPkg}/bin/waybar";
       ExecReload = "${pkgs.coreutils}/bin/kill -SIGUSR2 $MAINPID";
       Restart = "on-failure";
       RestartSec = 1;
