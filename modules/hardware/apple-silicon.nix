@@ -15,8 +15,13 @@
   home-manager.users.${username}.home.stateVersion = "25.11";
 
   # The Asahi installer drops extracted firmware blobs on the EFI System
-  # Partition under /boot/asahi; the module auto-detects that path, so no
-  # explicit hardware.asahi.peripheralFirmwareDirectory is needed here.
+  # Partition under /boot/asahi. The upstream module's auto-detect uses
+  # builtins.pathExists on a Nix path literal which silently fails under
+  # flake pure-eval — the default falls back to null and the
+  # peripheral-firmware module's assertion fires even when the files are
+  # right there. Setting it as a string keeps the path runtime-only (no
+  # store-import of the firmware blobs) and dodges pure-eval.
+  hardware.asahi.peripheralFirmwareDirectory = "/boot/asahi";
 
   # Broadcom WiFi on Apple Silicon: wpa_supplicant doesn't do WPA3, iwd does.
   networking.networkmanager.wifi.backend = "iwd";
