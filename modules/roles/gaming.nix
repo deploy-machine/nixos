@@ -1,5 +1,15 @@
 { config, lib, pkgs, ... }:
 {
+  # Hard-fail loudly if someone wires this role on aarch64 — Steam, Proton,
+  # gamescope-session and proton-ge-bin are all x86_64-linux only in nixpkgs,
+  # and a `lib.mkIf` silent-skip would just leave the user with a confusingly
+  # empty role. For Apple Silicon, the muvm+FEX path is a separate role
+  # (not yet implemented).
+  assertions = [{
+    assertion = pkgs.stdenv.hostPlatform.isx86_64;
+    message = "The 'gaming' role requires x86_64-linux (Steam, Proton, gamescope, proton-ge-bin are all x86-only).";
+  }];
+
   # Steam needs allowUnfree. The bootstrap should keep these consistent, but
   # if the host opted out we silently skip enabling Steam rather than failing
   # the build.

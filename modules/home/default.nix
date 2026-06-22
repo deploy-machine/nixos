@@ -1,4 +1,4 @@
-{ pkgs, username, ... }:
+{ lib, pkgs, username, ... }:
 {
   imports = [
     ./hyprland.nix
@@ -13,7 +13,10 @@
 
   home.username = username;
   home.homeDirectory = "/home/${username}";
-  home.stateVersion = "26.05";
+  # Default to the x86 host's install release. The Apple Silicon NixOS
+  # module pins this back to "25.11" via home-manager.users.<user>.home — the
+  # 25.11 HM module rejects values newer than its own release.
+  home.stateVersion = lib.mkDefault "26.05";
 
   fonts.fontconfig.enable = true;
 

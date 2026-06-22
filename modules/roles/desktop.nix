@@ -18,9 +18,10 @@
   # Thunar isn't running. xfconf is required for Thunar to persist preferences.
   programs.thunar = {
     enable = true;
-    plugins = with pkgs; [
-      thunar-archive-plugin
-      thunar-volman
+    # 26.05 moved these to top-level; 25.11 still has them under pkgs.xfce.
+    plugins = [
+      (pkgs.thunar-archive-plugin or pkgs.xfce.thunar-archive-plugin)
+      (pkgs.thunar-volman         or pkgs.xfce.thunar-volman)
     ];
   };
   programs.xfconf.enable = true;

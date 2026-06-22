@@ -1,8 +1,10 @@
-{ pkgs, ... }:
+{ lib, pkgs, ... }:
 {
-  # Bootloader (UEFI; override per-host for legacy BIOS).
+  # Bootloader (UEFI; override per-host for legacy BIOS). mkDefault on the
+  # EFI-vars flag so the Apple Silicon module can force it false — U-Boot on
+  # M-series Macs has no EFI vars to touch.
   boot.loader.systemd-boot.enable = true;
-  boot.loader.efi.canTouchEfiVariables = true;
+  boot.loader.efi.canTouchEfiVariables = lib.mkDefault true;
 
   # Networking. Per-host hostname is set in hosts/<hostname>/default.nix.
   networking.networkmanager.enable = true;
@@ -96,7 +98,10 @@
   # using their Windows / macOS builds, which we already do.
   nixpkgs.config.permittedInsecurePackages = [ "electron-39.8.10" ];
 
-  # Pinned to the install's release. Don't bump without reading the docs —
-  # gates default values of stateful options.
-  system.stateVersion = "26.05";
+  # Default stateVersion for hosts that don't override it. Pinned to the
+  # release the x86 install was bootstrapped on — never bump on a deployed
+  # host (gates default values of stateful options). The Apple Silicon
+  # hardware module overrides this to 25.11 because the Asahi installer ISO
+  # was pinned to that release.
+  system.stateVersion = lib.mkDefault "26.05";
 }

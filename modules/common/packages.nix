@@ -9,7 +9,10 @@
       nixd alejandra
       lua-language-server stylua
 
-      waybar libnotify swaynotificationcenter awww kitty rofi networkmanagerapplet
+      waybar libnotify swaynotificationcenter kitty rofi networkmanagerapplet
+      # Wallpaper daemon: `awww` is the rename of `swww` upstream (26.05).
+      # 25.11 still ships `swww`; fall back so this evaluates on both.
+      (pkgs.awww or pkgs.swww)
 
       xdg-desktop-portal-gnome
       xdg-desktop-portal-gtk

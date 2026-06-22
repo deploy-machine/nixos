@@ -1,10 +1,12 @@
-{ lib, inputs, osConfig ? null, ... }:
+{ lib, pkgs, inputs, osConfig ? null, ... }:
 let
-  # Discord is unfree, so gate on the host's nixpkgs.config.allowUnfree. With
-  # the home-manager-on-NixOS integration, `osConfig` exposes the system
-  # config; fall back to false when unavailable (standalone home-manager).
+  # Discord is unfree AND x86_64-only upstream, so gate on both the host's
+  # allowUnfree policy and the build platform. With the home-manager-on-NixOS
+  # integration, `osConfig` exposes the system config; fall back to false
+  # when unavailable (standalone home-manager).
   enabled = osConfig != null
-         && (osConfig.nixpkgs.config.allowUnfree or false);
+         && (osConfig.nixpkgs.config.allowUnfree or false)
+         && pkgs.stdenv.hostPlatform.isx86_64;
 in
 {
   # Module imported unconditionally — its closure is only realized when

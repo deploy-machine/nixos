@@ -64,37 +64,72 @@ fi
 # --- 1. hardware detection --------------------------------------------------
 bold "Hardware detection"
 
-cpu_raw="$(awk -F: '/vendor_id/{gsub(/ /,"",$2); print $2; exit}' /proc/cpuinfo)"
-case "$cpu_raw" in
-  GenuineIntel) cpu_detected=intel ;;
-  AuthenticAMD) cpu_detected=amd ;;
-  *)            cpu_detected=none ;;
+# Architecture is the first fork: aarch64 is currently only meaningful for
+# Apple Silicon (Asahi). Detect via /proc/device-tree/compatible — Asahi
+# always exposes one populated with "apple,<soc>" entries.
+arch_raw="$(uname -m)"
+case "$arch_raw" in
+  x86_64)  nix_system=x86_64-linux ;;
+  aarch64) nix_system=aarch64-linux ;;
+  *)       nix_system=x86_64-linux ;;  # fallback; user can edit /etc/nixos/flake.nix
 esac
-echo "  CPU vendor : $cpu_raw -> $cpu_detected"
-cpu_choice="$(ask_choice "Select CPU module:" "$cpu_detected" intel amd none)"
+apple_silicon=n
+if [ -f /proc/device-tree/compatible ] && grep -aq apple /proc/device-tree/compatible 2>/dev/null; then
+  apple_silicon=y
+fi
+# Per-host nixpkgs channel. Asahi installer + binary cache are pinned to
+# 25.11; the x86 host defaults to 26.05. mkHost looks this up to pick the
+# matching home-manager + stylix release branches.
+if [ "$apple_silicon" = "y" ]; then
+  channel=25.11
+else
+  channel=26.05
+fi
+echo "  arch       : $arch_raw -> $nix_system"
+echo "  Apple SoC  : $apple_silicon"
+echo "  channel    : $channel"
 
-gpu_line="$(lspci -nn 2>/dev/null | grep -iE 'vga|3d|display' || true)"
-gpu_detected=none
-# Match unambiguous vendor strings only. Earlier versions used '|amd|ati' but
-# 'ati' matches "comp[ati]ble" inside lspci's "VGA compatible controller"
-# prefix, so every system got falsely flagged AMD.
-echo "$gpu_line" | grep -qi 'intel corporation'   && gpu_detected=intel
-echo "$gpu_line" | grep -qi 'advanced micro devices' && gpu_detected=amd
-echo "$gpu_line" | grep -qi 'nvidia corporation'  && gpu_detected=nvidia
-echo "  GPU        : $gpu_detected"
-[ -n "$gpu_line" ] && echo "$gpu_line" | sed 's/^/    /'
-gpu_choice="$(ask_choice "Select GPU module:" "$gpu_detected" intel amd nvidia none)"
+if [ "$apple_silicon" = "y" ]; then
+  # The Asahi kernel/firmware/Mesa stack subsumes the per-vendor CPU/GPU/VM
+  # modules — picking gpu-amd on an M1 would be incoherent. Force-skip the
+  # menus so we can't end up with a broken combination.
+  cpu_choice=none
+  gpu_choice=none
+  vm_choice=none
+  echo "  (skipping CPU/GPU/VM menus — Apple Silicon module owns those)"
+else
+  cpu_raw="$(awk -F: '/vendor_id/{gsub(/ /,"",$2); print $2; exit}' /proc/cpuinfo)"
+  case "$cpu_raw" in
+    GenuineIntel) cpu_detected=intel ;;
+    AuthenticAMD) cpu_detected=amd ;;
+    *)            cpu_detected=none ;;
+  esac
+  echo "  CPU vendor : $cpu_raw -> $cpu_detected"
+  cpu_choice="$(ask_choice "Select CPU module:" "$cpu_detected" intel amd none)"
 
-virt="$(systemd-detect-virt 2>/dev/null || echo none)"
-case "$virt" in
-  microsoft) vm_detected=hyperv ;;
-  vmware)    vm_detected=vmware ;;
-  oracle)    vm_detected=virtualbox ;;
-  kvm|qemu)  vm_detected=qemu ;;
-  *)         vm_detected=none ;;
-esac
-echo "  VM         : systemd-detect-virt=$virt -> $vm_detected"
-vm_choice="$(ask_choice "Select VM guest-tools module:" "$vm_detected" hyperv qemu vmware virtualbox none)"
+  gpu_line="$(lspci -nn 2>/dev/null | grep -iE 'vga|3d|display' || true)"
+  gpu_detected=none
+  # Match unambiguous vendor strings only. Earlier versions used '|amd|ati' but
+  # 'ati' matches "comp[ati]ble" inside lspci's "VGA compatible controller"
+  # prefix, so every system got falsely flagged AMD.
+  echo "$gpu_line" | grep -qi 'intel corporation'   && gpu_detected=intel
+  echo "$gpu_line" | grep -qi 'advanced micro devices' && gpu_detected=amd
+  echo "$gpu_line" | grep -qi 'nvidia corporation'  && gpu_detected=nvidia
+  echo "  GPU        : $gpu_detected"
+  [ -n "$gpu_line" ] && echo "$gpu_line" | sed 's/^/    /'
+  gpu_choice="$(ask_choice "Select GPU module:" "$gpu_detected" intel amd nvidia none)"
+
+  virt="$(systemd-detect-virt 2>/dev/null || echo none)"
+  case "$virt" in
+    microsoft) vm_detected=hyperv ;;
+    vmware)    vm_detected=vmware ;;
+    oracle)    vm_detected=virtualbox ;;
+    kvm|qemu)  vm_detected=qemu ;;
+    *)         vm_detected=none ;;
+  esac
+  echo "  VM         : systemd-detect-virt=$virt -> $vm_detected"
+  vm_choice="$(ask_choice "Select VM guest-tools module:" "$vm_detected" hyperv qemu vmware virtualbox none)"
+fi
 
 # --- 2. deployment questions ------------------------------------------------
 echo
@@ -130,7 +165,20 @@ else
   fi
 fi
 
-if [ "$role" = "gaming-kiosk" ]; then
+if [ "$apple_silicon" = "y" ]; then
+  # The x86 gaming role's stack (Steam, Proton, gamescope-session, proton-ge-bin)
+  # is x86_64-only in nixpkgs. On Apple Silicon the canonical path is muvm +
+  # FEX, packaged separately as roles.gaming-asahi.
+  if [ "$role" = "gaming-kiosk" ]; then
+    warn "gaming-kiosk is x86_64-only — falling back to desktop role."
+    role=desktop
+  fi
+  if ask_yn "Gaming extras (muvm + FEX, controllers, bluetooth)?" n; then
+    gaming=y
+  else
+    gaming=n
+  fi
+elif [ "$role" = "gaming-kiosk" ]; then
   gaming=y
   echo "  (gaming extras forced on — implied by gaming-kiosk)"
 else
@@ -164,6 +212,9 @@ bold "Summary"
 cat <<EOF
   hostname        $hostname
   username        $username
+  arch / system   $nix_system
+  apple silicon   $apple_silicon
+  nixpkgs channel $channel
   CPU module      $cpu_choice
   GPU module      $gpu_choice
   VM module       $vm_choice
@@ -241,10 +292,17 @@ modules=(
 [ "$cpu_choice" != "none" ] && modules+=("config-repo.nixosModules.hardware.cpu-$cpu_choice")
 [ "$gpu_choice" != "none" ] && modules+=("config-repo.nixosModules.hardware.gpu-$gpu_choice")
 [ "$vm_choice"  != "none" ] && modules+=("config-repo.nixosModules.hardware.vm-$vm_choice")
+[ "$apple_silicon" = "y" ] && modules+=("config-repo.nixosModules.hardware.apple-silicon")
 modules+=("config-repo.nixosModules.roles.$role")
 [ "$laptop"        = "y" ] && modules+=("config-repo.nixosModules.roles.laptop")
 [ "$multi_monitor" = "y" ] && modules+=("config-repo.nixosModules.roles.multi-monitor")
-[ "$gaming"        = "y" ] && [ "$role" != "gaming-kiosk" ] && modules+=("config-repo.nixosModules.roles.gaming")
+if [ "$gaming" = "y" ] && [ "$role" != "gaming-kiosk" ]; then
+  if [ "$apple_silicon" = "y" ]; then
+    modules+=("config-repo.nixosModules.roles.gaming-asahi")
+  else
+    modules+=("config-repo.nixosModules.roles.gaming")
+  fi
+fi
 
 {
   cat <<EOF
@@ -257,7 +315,8 @@ modules+=("config-repo.nixosModules.roles.$role")
     nixosConfigurations."$hostname" = config-repo.lib.mkHost {
       hostname = "$hostname";
       username = "$username";
-      system   = "x86_64-linux";
+      system   = "$nix_system";
+      channel  = "$channel";
       extraModules = [
         ./hardware-configuration.nix
         ./host.nix

@@ -3,6 +3,12 @@ let
   c = import ./colors.nix;
   wallpaper = "${config.home.homeDirectory}/Wallpapers/nixos.png";
 
+  # 26.05 renamed swww → awww; 25.11 still ships swww. The CLIs are
+  # identical (`<bin> img <path>`, `<bin>-daemon`) so the autostart lines
+  # below just interpolate this name. (pkgs.swww on 26.05 is an alias to
+  # awww with a deprecation warning, so we check awww first.)
+  wallpaperBin = if pkgs ? awww then "awww" else "swww";
+
   # `screenshot <region|window|output>` — hyprshot captures pixels to stdout
   # (--raw), satty pops up an annotate/crop UI, on save it writes the file +
   # copies to the clipboard. After save, notify-send blocks on --wait so a
@@ -57,8 +63,8 @@ in
 
     ----------------------------------------------------------------- AUTOSTART
     hl.on("hyprland.start", function ()
-      hl.exec_cmd("awww-daemon")
-      hl.exec_cmd("bash -c 'sleep 6 && awww img ${wallpaper}'")
+      hl.exec_cmd("${wallpaperBin}-daemon")
+      hl.exec_cmd("bash -c 'sleep 6 && ${wallpaperBin} img ${wallpaper}'")
       hl.exec_cmd("nm-applet --indicator")
       hl.exec_cmd("sleep 6 && systemctl --user start wayvnc.service")
     end)
