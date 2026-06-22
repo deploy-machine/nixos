@@ -16,6 +16,23 @@ REPO_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 TS="$(date +%Y%m%d-%H%M%S)"
 NIXOS_DIR=/etc/nixos
 
+# --no-rebuild stops after writing /etc/nixos/{flake,host,hardware-configuration}.nix.
+# Useful for inspecting the generated config and running `nixos-rebuild dry-build`
+# manually before touching the running system. The activation step (`nixos-rebuild
+# boot|switch`) is skipped.
+no_rebuild=n
+for arg in "$@"; do
+  case "$arg" in
+    --no-rebuild|--dry|-n) no_rebuild=y ;;
+    -h|--help)
+      echo "Usage: $0 [--no-rebuild]"
+      echo "  --no-rebuild  write /etc/nixos/{flake,host}.nix but skip nixos-rebuild"
+      exit 0
+      ;;
+    *) echo "unknown arg: $arg" >&2; exit 1 ;;
+  esac
+done
+
 # --- helpers ----------------------------------------------------------------
 bold() { printf '\033[1m%s\033[0m\n' "$*"; }
 warn() { printf '\033[33mwarn:\033[0m %s\n' "$*"; }
@@ -421,6 +438,24 @@ if systemctl --quiet is-active "home-manager-${username}.service" 2>/dev/null; t
   rebuild_action=switch
 else
   rebuild_action=boot
+fi
+
+if [ "$no_rebuild" = "y" ]; then
+  echo
+  bold "Dry run — skipping nixos-rebuild."
+  echo "Generated files are in $NIXOS_DIR. Inspect with:"
+  echo "  cat $NIXOS_DIR/flake.nix"
+  echo "  cat $NIXOS_DIR/host.nix"
+  echo "Then verify with a non-mutating build:"
+  echo "  sudo nixos-rebuild dry-build --flake $NIXOS_DIR#$hostname \\"
+  echo "    --option experimental-features 'nix-command flakes'"
+  echo "Or build to a result symlink without activation:"
+  echo "  sudo nixos-rebuild build --flake $NIXOS_DIR#$hostname \\"
+  echo "    --option experimental-features 'nix-command flakes'"
+  echo "  ls -l ./result/"
+  echo "When you're ready to stage for next boot:"
+  echo "  sudo nixos-rebuild boot --flake $NIXOS_DIR#$hostname"
+  exit 0
 fi
 
 ok "Building the system ($rebuild_action). First run downloads everything; expect a wait."
