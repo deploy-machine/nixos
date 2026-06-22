@@ -503,7 +503,7 @@ rebuild_extra=()
 # script stages stage-1, prompts a reboot, and a post-reboot
 # `nixos-rebuild switch` (or another run of this script) finishes stage-2.
 if [ "$apple_silicon" = "y" ] && [ "$gaming" = "y" ] && \
-   [ ! -e /proc/sys/fs/binfmt_misc/qemu-x86_64 ]; then
+   [ ! -e /proc/sys/fs/binfmt_misc/x86_64-linux ]; then
   ok "Apple Silicon + gaming first-run: x86_64 binfmt is not yet registered."
   ok "Pre-stage rebuild WITHOUT the x86 gaming closure to register qemu binfmt..."
 
