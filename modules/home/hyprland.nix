@@ -52,6 +52,42 @@ let
     '';
   };
 
+  # swww/awww-daemon notices when a new wayland output appears but won't
+  # paint it until a client re-issues `img`. Hyprland's exec-once only fires
+  # at session start, so a monitor hot-plugged later stays blank. This
+  # watcher: waits for the daemon, paints once, then tails socket2 and
+  # re-paints on every monitoradded/monitorremoved. Cold-boot covered too,
+  # because outputs that come up after Hyprland starts surface as
+  # `monitoradded` events as soon as they're registered. Used by both the
+  # .conf and .lua paths below — one helper, one place to debug.
+  wallpaperScript = pkgs.writeShellApplication {
+    name = "hypr-wallpaper";
+    runtimeInputs = [ pkgs.${wallpaperBin} pkgs.socat pkgs.coreutils ];
+    text = ''
+      paint() { ${wallpaperBin} img "${wallpaper}" >/dev/null 2>&1 || true; }
+
+      # Daemon is launched in parallel by another exec-once; wait up to ~10s
+      # for its IPC socket. Without this, the first paint races and silently
+      # no-ops.
+      for _ in $(seq 1 50); do
+        ${wallpaperBin} query >/dev/null 2>&1 && break
+        sleep 0.2
+      done
+
+      paint
+
+      SOCK="''${XDG_RUNTIME_DIR}/hypr/''${HYPRLAND_INSTANCE_SIGNATURE}/.socket2.sock"
+      [ -S "$SOCK" ] || exit 0
+      # socket2 broadcasts every event to every connected client, so this
+      # coexists fine with the pin watcher below.
+      socat -U - "UNIX-CONNECT:$SOCK" | while read -r line; do
+        case "$line" in
+          monitoradded*|monitorremoved*) paint ;;
+        esac
+      done
+    '';
+  };
+
   # Hyprland 0.52's .conf format has no Lua-style loops, so the dynamic
   # workspace pinning (1 mon → 1..10, 2 → 5+5, 3 → 3+3+3, 4+ → round-robin)
   # lives in this helper that re-pins on monitor add/remove via socket2 IPC.
@@ -112,7 +148,7 @@ let
 
     ############################################################ AUTOSTART
     exec-once = ${wallpaperBin}-daemon
-    exec-once = bash -c 'sleep 6 && ${wallpaperBin} img ${wallpaper}'
+    exec-once = ${wallpaperScript}/bin/hypr-wallpaper
     exec-once = nm-applet --indicator
     exec-once = sleep 6 && systemctl --user start wayvnc.service
     exec-once = ${pinScript}/bin/hypr-pin-workspaces
@@ -216,10 +252,9 @@ let
         }
     }
 
-    gestures {
-        workspace_swipe = true
-        workspace_swipe_fingers = 3
-    }
+    # Hyprland 0.50 replaced the `gestures { workspace_swipe = ... }` block
+    # with a unified `gesture =` keyword (FINGERS, DIRECTION, ACTION).
+    gesture = 3, horizontal, workspace
 
     device {
         name = epic-mouse-v1
@@ -346,7 +381,7 @@ let
     ----------------------------------------------------------------- AUTOSTART
     hl.on("hyprland.start", function ()
       hl.exec_cmd("${wallpaperBin}-daemon")
-      hl.exec_cmd("bash -c 'sleep 6 && ${wallpaperBin} img ${wallpaper}'")
+      hl.exec_cmd("${wallpaperScript}/bin/hypr-wallpaper")
       hl.exec_cmd("nm-applet --indicator")
       hl.exec_cmd("sleep 6 && systemctl --user start wayvnc.service")
     end)

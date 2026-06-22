@@ -1,4 +1,4 @@
-{ inputs, lib, username, ... }:
+{ inputs, lib, pkgs, username, ... }:
 {
   # Pulls the upstream Asahi kernel (linux-asahi), m1n1 / u-boot, peripheral
   # firmware extraction, and the Mesa overlay that exposes the Apple GPU
@@ -34,6 +34,40 @@
 
   # Broadcom WiFi on Apple Silicon: wpa_supplicant doesn't do WPA3, iwd does.
   networking.networkmanager.wifi.backend = "iwd";
+
+  # Register qemu-user as the x86_64 binfmt handler so the host can build
+  # (and, if needed, run) x86_64 binaries under emulation. Asahi is aarch64-
+  # only and a lot of useful software is x86-only in nixpkgs; even when most
+  # of a closure substitutes binary from cache, some wrapper derivations
+  # (buildFHSEnv's gsettings-schemas-directory, *-wrapped, *-init glue) are
+  # `allowSubstitutes = false` and MUST build locally. Without binfmt, those
+  # builds fail with "required system: x86_64-linux ... current: aarch64".
+  # `boot.binfmt.emulatedSystems` also adds x86_64-linux to
+  # nix.settings.extra-platforms automatically.
+  #
+  # Runtime note: roles.gaming-asahi routes Steam/Zoom through muvm + FEX,
+  # not host qemu — the muvm wrapper execs the x86 entrypoint inside the
+  # microVM, where FEX is the registered binfmt handler. The host qemu
+  # registration here is for build-time emulation and as a fallback for
+  # one-off x86 binaries outside the muvm/FEX path.
+  boot.binfmt.emulatedSystems = [ "x86_64-linux" ];
+
+  # APFS (macOS filesystem) read access. The mainline Linux kernel has no
+  # APFS driver. apfs-fuse is a userspace FUSE driver that mounts APFS
+  # containers read-only (write support is experimental upstream and not
+  # exposed by default — safe for dual-boot Asahi users who want to read
+  # files off their macOS partition). The kernel-module alternative
+  # (linux-apfs-rw) is out-of-tree and would force linux-asahi rebuilds,
+  # losing the cachix substituter for kernel updates, so FUSE wins.
+  #
+  # Usage (manual mount — no fstab entry because device paths vary per host):
+  #     lsblk -f                                  # find the APFS partition
+  #     mkdir -p ~/macos
+  #     apfs-fuse /dev/nvme0n1p3 ~/macos          # read-only by default
+  #     fusermount -u ~/macos                     # unmount
+  # If the container has multiple volumes (Data, Preboot, Recovery, VM),
+  # pass `-v <index>` to select one; `apfs-fuse -l /dev/...` lists them.
+  environment.systemPackages = [ pkgs.apfs-fuse ];
 
   # Building linux-asahi + Mesa from source on a laptop is hours of wall-clock
   # time. The community cache ships pre-built kernels keyed to specific

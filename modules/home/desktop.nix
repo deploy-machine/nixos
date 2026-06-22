@@ -51,6 +51,11 @@ in
   ] ++ lib.optionals pkgs.stdenv.hostPlatform.isx86_64 [
     onlyoffice-desktopeditors  # docx/xlsx/pptx editor (x86_64 binary upstream)
     tutanota-desktop           # encrypted email (x86_64 Electron upstream)
+  ] ++ lib.optionals (pkgs.stdenv.hostPlatform.isx86_64
+                  && (pkgs.config.allowUnfree or false)) [
+    # zoom-us is upstream x86_64 + unfree. On aarch64 (Asahi) it ships via the
+    # muvm-zoom wrapper in modules/roles/gaming-asahi.nix instead.
+    zoom-us
   ] ++ lib.optionals (pkgs.config.allowUnfree or false) [
     unrar                      # .rar extraction (unfree license)
   ];

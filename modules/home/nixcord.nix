@@ -1,12 +1,12 @@
 { lib, pkgs, inputs, osConfig ? null, ... }:
 let
-  # Discord is unfree AND x86_64-only upstream, so gate on both the host's
-  # allowUnfree policy and the build platform. With the home-manager-on-NixOS
-  # integration, `osConfig` exposes the system config; fall back to false
-  # when unavailable (standalone home-manager).
-  enabled = osConfig != null
-         && (osConfig.nixpkgs.config.allowUnfree or false)
-         && pkgs.stdenv.hostPlatform.isx86_64;
+  # Upstream Discord is unfree + x86_64-only, so on aarch64 (Asahi) we fall
+  # back to Vesktop, which is FOSS and has an aarch64-linux build. Both
+  # clients share the same Vencord config below, written by nixcord.
+  allowUnfree = osConfig != null && (osConfig.nixpkgs.config.allowUnfree or false);
+  isAarch64   = pkgs.stdenv.hostPlatform.isAarch64;
+  useVesktop  = isAarch64;
+  enabled     = allowUnfree || useVesktop;  # Vesktop itself is free
 in
 {
   # Module imported unconditionally — its closure is only realized when
@@ -14,8 +14,13 @@ in
   imports = [ inputs.nixcord.homeModules.nixcord ];
 
   config = lib.mkIf enabled {
+    # The whole nixcord HM module body is gated on programs.nixcord.enable —
+    # leaving it false skips installation of Vesktop too. So enable nixcord
+    # unconditionally and opt out of Discord on aarch64 via discord.enable.
     programs.nixcord = {
-      enable = true;                  # installs Discord + Vencord
+      enable = true;
+      discord.enable = !useVesktop;   # x86_64: Discord + Vencord
+      vesktop.enable = useVesktop;    # aarch64: Vesktop (bundled Vencord)
       config = {
         frameless = true;             # drop the titlebar — cleaner under a tiling WM
         plugins = {
