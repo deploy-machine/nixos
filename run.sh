@@ -16,6 +16,15 @@ REPO_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 TS="$(date +%Y%m%d-%H%M%S)"
 NIXOS_DIR=/etc/nixos
 
+# When run via `sudo ./run.sh`, $HOME is /root — wallpaper and dotfiles
+# would land there instead of the real user's home. Resolve the invoking
+# user from $SUDO_USER (sudo sets it) and derive their home + uid/gid so
+# user-owned files end up in the right place with the right ownership.
+INVOKING_USER="${SUDO_USER:-$USER}"
+INVOKING_HOME="$(getent passwd "$INVOKING_USER" | cut -d: -f6)"
+[ -n "$INVOKING_HOME" ] || { echo "could not resolve home for $INVOKING_USER" >&2; exit 1; }
+run_as_user() { sudo -u "$INVOKING_USER" -H "$@"; }
+
 # --no-rebuild stops after writing /etc/nixos/{flake,host,hardware-configuration}.nix.
 # Useful for inspecting the generated config and running `nixos-rebuild dry-build`
 # manually before touching the running system. The activation step (`nixos-rebuild
@@ -350,26 +359,28 @@ EOF
 ok "Wrote $NIXOS_DIR/flake.nix"
 
 # --- 8. wallpaper (referenced by modules/home/hyprland.nix's awww autostart)
+# Run as the invoking user so files land in their home, not /root, when
+# the script is invoked via `sudo ./run.sh`.
 if [ -f "$REPO_DIR/nixos.png" ]; then
-  mkdir -p "$HOME/Wallpapers"
-  cp -u "$REPO_DIR/nixos.png" "$HOME/Wallpapers/nixos.png"
+  run_as_user mkdir -p "$INVOKING_HOME/Wallpapers"
+  run_as_user cp -u "$REPO_DIR/nixos.png" "$INVOKING_HOME/Wallpapers/nixos.png"
 fi
 
 # --- 9. LazyVim dotfiles (out-of-store target from modules/home/neovim.nix) -
-if [ ! -d "$HOME/dotfiles/nvim" ]; then
-  ok "Cloning LazyVim starter into ~/dotfiles/nvim ..."
-  git clone https://github.com/LazyVim/starter "$HOME/dotfiles/nvim"
-  rm -rf "$HOME/dotfiles/nvim/.git"
-  mkdir -p "$HOME/dotfiles/nvim/lua/plugins"
+if [ ! -d "$INVOKING_HOME/dotfiles/nvim" ]; then
+  ok "Cloning LazyVim starter into $INVOKING_HOME/dotfiles/nvim ..."
+  run_as_user git clone https://github.com/LazyVim/starter "$INVOKING_HOME/dotfiles/nvim"
+  run_as_user rm -rf "$INVOKING_HOME/dotfiles/nvim/.git"
+  run_as_user mkdir -p "$INVOKING_HOME/dotfiles/nvim/lua/plugins"
 
-  cat > "$HOME/dotfiles/nvim/lua/plugins/colorscheme.lua" << 'LUA'
+  run_as_user tee "$INVOKING_HOME/dotfiles/nvim/lua/plugins/colorscheme.lua" >/dev/null << 'LUA'
 return {
   { "color-schemes/milkoutside.nvim", lazy = false, priority = 1000, opts = {} },
   { "LazyVim/LazyVim", opts = { colorscheme = "milkoutside" } },
 }
 LUA
 
-  cat > "$HOME/dotfiles/nvim/lua/plugins/nixos.lua" << 'LUA'
+  run_as_user tee "$INVOKING_HOME/dotfiles/nvim/lua/plugins/nixos.lua" >/dev/null << 'LUA'
 return {
   {
     "neovim/nvim-lspconfig",
