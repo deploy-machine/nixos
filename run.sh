@@ -441,27 +441,39 @@ else
 fi
 
 if [ "$no_rebuild" = "y" ]; then
+  impure_hint=""
+  [ "$apple_silicon" = "y" ] && impure_hint=" --impure"
   echo
   bold "Dry run — skipping nixos-rebuild."
   echo "Generated files are in $NIXOS_DIR. Inspect with:"
   echo "  cat $NIXOS_DIR/flake.nix"
   echo "  cat $NIXOS_DIR/host.nix"
   echo "Then verify with a non-mutating build:"
-  echo "  sudo nixos-rebuild dry-build --flake $NIXOS_DIR#$hostname \\"
+  echo "  sudo nixos-rebuild dry-build --flake $NIXOS_DIR#$hostname$impure_hint \\"
   echo "    --option experimental-features 'nix-command flakes'"
   echo "Or build to a result symlink without activation:"
-  echo "  sudo nixos-rebuild build --flake $NIXOS_DIR#$hostname \\"
+  echo "  sudo nixos-rebuild build --flake $NIXOS_DIR#$hostname$impure_hint \\"
   echo "    --option experimental-features 'nix-command flakes'"
   echo "  ls -l ./result/"
   echo "When you're ready to stage for next boot:"
-  echo "  sudo nixos-rebuild boot --flake $NIXOS_DIR#$hostname"
+  echo "  sudo nixos-rebuild boot --flake $NIXOS_DIR#$hostname$impure_hint"
+  [ "$apple_silicon" = "y" ] && echo \
+    "  (--impure is required: modules/hardware/apple-silicon.nix needs to" \
+    && echo "   store-import /boot/asahi, which is outside the flake source.)"
   exit 0
 fi
+
+# Apple Silicon needs --impure because modules/hardware/apple-silicon.nix
+# uses the path literal /boot/asahi to store-import the firmware blobs.
+# /boot/asahi is outside the flake source and pure-eval forbids that.
+rebuild_extra=()
+[ "$apple_silicon" = "y" ] && rebuild_extra+=(--impure)
 
 ok "Building the system ($rebuild_action). First run downloads everything; expect a wait."
 sudo nixos-rebuild "$rebuild_action" \
   --flake "$NIXOS_DIR#$hostname" \
-  --option experimental-features "nix-command flakes"
+  --option experimental-features "nix-command flakes" \
+  "${rebuild_extra[@]}"
 
 echo
 if [ "$rebuild_action" = "boot" ]; then

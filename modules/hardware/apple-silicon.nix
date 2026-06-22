@@ -15,13 +15,22 @@
   home-manager.users.${username}.home.stateVersion = "25.11";
 
   # The Asahi installer drops extracted firmware blobs on the EFI System
-  # Partition under /boot/asahi. The upstream module's auto-detect uses
-  # builtins.pathExists on a Nix path literal which silently fails under
-  # flake pure-eval — the default falls back to null and the
-  # peripheral-firmware module's assertion fires even when the files are
-  # right there. Setting it as a string keeps the path runtime-only (no
-  # store-import of the firmware blobs) and dodges pure-eval.
-  hardware.asahi.peripheralFirmwareDirectory = "/boot/asahi";
+  # Partition under /boot/asahi. Two upstream-defect interactions force the
+  # explicit path-literal form here:
+  #
+  #   1. The upstream auto-detect uses builtins.pathExists on a Nix path
+  #      literal, which silently returns false under flake pure-eval — the
+  #      default falls back to null and the peripheral-firmware assertion
+  #      fires even when the files are right there.
+  #   2. A string ("/boot/asahi") would silence (1) but the firmware-
+  #      extraction derivation runs in the Nix build sandbox, where /boot
+  #      isn't mounted — tar fails with "Cannot open: No such file".
+  #
+  # The path literal triggers store-import of /boot/asahi at evaluation
+  # time so the sandboxed builder can read it. Because /boot/asahi is
+  # outside the flake source, this requires `--impure` on rebuilds
+  # (run.sh adds it automatically when Apple Silicon is detected).
+  hardware.asahi.peripheralFirmwareDirectory = /boot/asahi;
 
   # Broadcom WiFi on Apple Silicon: wpa_supplicant doesn't do WPA3, iwd does.
   networking.networkmanager.wifi.backend = "iwd";
