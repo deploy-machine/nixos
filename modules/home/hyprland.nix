@@ -17,6 +17,10 @@ let
   isAsahi = pkgs.stdenv.hostPlatform.isAarch64;
   mainMod = if isAsahi then "SUPER" else "ALT";
 
+  # Discord client tracks what nixcord.nix actually installs: upstream Discord
+  # is unfree + x86_64-only, so aarch64 falls back to Vesktop.
+  discordBin = if isAsahi then "vesktop" else "discord";
+
   # `screenshot <region|window|output>` — hyprshot captures pixels to stdout
   # (--raw), satty pops up an annotate/crop UI, on save it writes the file +
   # copies to the clipboard. After save, notify-send blocks on --wait so a
@@ -276,7 +280,7 @@ let
     bind = $mainMod,         R, exec, $menu
     bind = $mainMod SHIFT,   F, exec, $fileManager
     bind = $mainMod,         B, exec, chromium
-    bind = $mainMod,         D, exec, vesktop
+    bind = $mainMod,         D, exec, ${discordBin}
     bind = $mainMod,         A, exec, pavucontrol
     bind = $mainMod,         P, exec, bitwarden
     bind = $mainMod,         N, exec, swaync-client -t -sw
@@ -569,7 +573,7 @@ let
     hl.bind(mainMod .. " + R",          hl.dsp.exec_cmd(menu))                          -- Rofi launcher
     hl.bind(mainMod .. " + SHIFT + F",  hl.dsp.exec_cmd(fileManager))                   -- File manager
     hl.bind(mainMod .. " + B",          hl.dsp.exec_cmd("chromium"))                    -- Browser
-    hl.bind(mainMod .. " + D",          hl.dsp.exec_cmd("vesktop"))                     -- Discord (nixcord)
+    hl.bind(mainMod .. " + D",          hl.dsp.exec_cmd("${discordBin}"))               -- Discord (nixcord)
     hl.bind(mainMod .. " + A",          hl.dsp.exec_cmd("pavucontrol"))                 -- Audio mixer
     hl.bind(mainMod .. " + P",          hl.dsp.exec_cmd("bitwarden"))                   -- Password manager
     hl.bind(mainMod .. " + N",          hl.dsp.exec_cmd("swaync-client -t -sw"))        -- Notification center toggle
