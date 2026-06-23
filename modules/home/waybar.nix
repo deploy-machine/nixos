@@ -425,7 +425,7 @@ window#waybar.hidden {
 
 #custom-nixos:hover {
 	color: @no0;
-	background-color: @gr0;
+	background-color: @re1;
 }
 
 
@@ -452,8 +452,12 @@ window#waybar.hidden {
 	color: @re0;
 }
 
+#workspaces button.active {
+	background-color: @re0;
+}
+
 #workspaces button.active label {
-	color: @gr0;
+	color: @no0;
 }
 
 #workspaces button:hover {
@@ -465,11 +469,11 @@ window#waybar.hidden {
 }
 
 #workspaces button.active:hover {
-	background-color: @gr2;
+	background-color: @re0;
 }
 
-#workspaces button.active label {
-	color: @gr0;
+#workspaces button.active:hover label {
+	color: @no0;
 }
 
 #workspaces button.urgent {
