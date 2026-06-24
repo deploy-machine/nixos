@@ -9,7 +9,6 @@
   # Networking. Per-host hostname is set in hosts/<hostname>/default.nix.
   networking.networkmanager.enable = true;
   networking.firewall.allowedTCPPorts = [ 22 ];
-  networking.firewall.allowedUDPPorts = [ 22 ];
 
   time.timeZone = "Europe/Amsterdam";
   i18n.defaultLocale = "en_US.UTF-8";
@@ -52,9 +51,10 @@
       xdg-desktop-portal-gnome
       xdg-desktop-portal-gtk
       xdg-desktop-portal-hyprland
-      xdg-desktop-portal-wlr
     ];
-    config.common.default = [ "wlr" ];
+    # hyprland portal only implements Screenshot/ScreenCast/GlobalShortcuts;
+    # gtk is the fallback for everything else (FileChooser, OpenURI, …).
+    config.common.default = [ "hyprland" "gtk" ];
   };
 
   # Tells Chromium/Electron apps to use Wayland natively.
@@ -92,8 +92,7 @@
   # nixpkgs.config.allowUnfree is set per-host (the bootstrap asks). Anything
   # else nixpkgs-config-shaped is fine to set here unconditionally — it only
   # matters when the relevant package is actually pulled in.
-  nixpkgs.config.chromium.commandLineArgs = "--enable-features=UseOzonePlatform --ozone-platform=wayland";
-
+  #
   # tutanota-desktop bundles an EOL Electron upstream; same risk profile as
   # using their Windows / macOS builds, which we already do.
   nixpkgs.config.permittedInsecurePackages = [ "electron-39.8.10" ];
