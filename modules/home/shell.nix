@@ -114,36 +114,38 @@ when = 'true'
 style = "fg:cy0 bg:cy2"
 format = '[ $output ]($style)'
 
+# Full greyscale palette. Every slot is a shade of grey — the prompt
+# segmentation reads by luminance only, no color anywhere. `re0` (once
+# the accent) is now the brightest fill so the directory block and
+# character arrow still catch the eye.
 [palettes.milkoutside]
-no0 = "#040607"
-no1 = "#0f0f15"
+no0 = "#0a0a0a"
+no1 = "#141414"
 
-re0 = "#f93a82"
-re2 = "#2e0f1f"
+# Bright-grey "highlight" slot — used on [directory] and [character]
+# so the current path + prompt caret land as the visual anchor.
+re0 = "#e0e0e0"
+re2 = "#3a3a3a"
 
-gr0 = "#92cf9c"
-gr2 = "#16271b"
-
-ye0 = "#f8e063"
-ye2 = "#332D10"
-
-bl0 = "#63c3dd"
-bl2 = "#0c2329"
-
-pu0 = "#9d7cd8"
-pu2 = "#1f1733"
-
-cy0 = "#7dcfff"
-cy2 = "#11242f"
-
-wh0 = "#8a8a8a"
-wh2 = "#1E2025"
-
-me0 = "#4D5A80"
-me2 = "#0D1120"
-
-or0 = "#ffad00"
-or2 = "#332300"
+# Language / status segments — pure grey pairs (bright text on
+# dark pill). Existing "solid pill + darker background" powerline
+# shape survives unchanged.
+gr0 = "#b0b0b0"
+gr2 = "#1c1c1c"
+ye0 = "#b0b0b0"
+ye2 = "#1c1c1c"
+bl0 = "#b0b0b0"
+bl2 = "#1c1c1c"
+pu0 = "#b0b0b0"
+pu2 = "#1c1c1c"
+cy0 = "#b0b0b0"
+cy2 = "#272727"
+wh0 = "#b0b0b0"
+wh2 = "#1c1c1c"
+me0 = "#b0b0b0"
+me2 = "#1c1c1c"
+or0 = "#b0b0b0"
+or2 = "#1c1c1c"
 
 [git_branch]
 symbol = ""

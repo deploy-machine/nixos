@@ -55,13 +55,19 @@ let
       then ''<svg width="14" height="31" viewBox="0 0 14 31" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0 0H14V19L0 31V0Z" fill="${fill}"/></svg>''
       else ''<svg width="14" height="31" viewBox="0 0 14 31" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14 0L0 0L0 17L14 31L14 0Z" fill="${fill}"/></svg>''
     );
-  # milkoutside: no1 = panel bg, re0 = red accent, gr0 = green accent
-  no1L = mkArrow "no1-left"  "#0f0f15" "left";
-  no1R = mkArrow "no1-right" "#0f0f15" "right";
-  re0L = mkArrow "re0-left"  "#f93a82" "left";
-  re0R = mkArrow "re0-right" "#f93a82" "right";
-  gr0L = mkArrow "gr0-left"  "#92cf9c" "left";
-  gr0R = mkArrow "gr0-right" "#92cf9c" "right";
+  # Full greyscale — no colored accent anywhere on the bar. The three
+  # arrow fills are three grey brightness levels so the powerline
+  # segmentation still reads by luminance:
+  #   no1 = darker panel bg (default module pills)
+  #   no2 = mid-grey (center window-title pill)
+  #   re0 = brightest — used on the nixos logo pill (leftmost identity
+  #         mark) and the active workspace indicator
+  no1L = mkArrow "no1-left"  "#141414" "left";
+  no1R = mkArrow "no1-right" "#141414" "right";
+  no2L = mkArrow "no2-left"  "#1c1c1c" "left";
+  no2R = mkArrow "no2-right" "#1c1c1c" "right";
+  re0L = mkArrow "re0-left"  "#e0e0e0" "left";
+  re0R = mkArrow "re0-right" "#e0e0e0" "right";
 in
 {
   home.packages = [
@@ -93,9 +99,9 @@ in
     "modules-center": [
       "custom/arrow-right-no1",
       "clock#date",
-      "custom/arrow-right-re0",
+      "custom/arrow-right-no2",
       "hyprland/window",
-      "custom/arrow-left-re0",
+      "custom/arrow-left-no2",
       "clock#time",
       "custom/arrow-left-no1"
     ],
@@ -122,6 +128,14 @@ in
       "tooltip": false
     },
     "custom/arrow-right-re0": {
+      "format": "  ",
+      "tooltip": false
+    },
+    "custom/arrow-left-no2": {
+      "format": "  ",
+      "tooltip": false
+    },
+    "custom/arrow-right-no2": {
       "format": "  ",
       "tooltip": false
     },
@@ -260,51 +274,38 @@ in
 # ---------------------------------------
 */
 
-/* === VARIABLES === */
+/* === VARIABLES ===
+ * Full greyscale rice. Every pill, arrow, hover, active-state, and
+ * semantic hint is a shade of grey. Differentiation is by luminance
+ * only — no colored accent anywhere.
+ */
 
-@define-color no0 #040607;
-@define-color no1 #0f0f15;
-@define-color no2 #1a1e2e;
+@define-color no0 #0a0a0a;   /* base / transparent overlay */
+@define-color no1 #141414;   /* default module pill bg */
+@define-color no2 #1c1c1c;   /* mid-grey for center window pill */
+@define-color no3 #272727;   /* hover fill */
 
-@define-color re0 #f93a82;
-@define-color re1 #7a1d40;
-@define-color re2 #2e0f1f;
+@define-color fg  #d0d0d0;   /* bright text (hover / emphasized) */
+@define-color wh0 #b0b0b0;   /* primary module text (koda fg) */
+@define-color wh1 #777777;   /* dim module text */
+@define-color wh2 #50585d;   /* very dim / disabled */
+@define-color wh3 #3a3a3a;   /* border */
 
-@define-color gr0 #92cf9c;
-@define-color gr1 #2f5a39;
-@define-color gr2 #16271b;
+/* "Accent" — kept as a name so downstream CSS keeps compiling, but the
+ * value is bright grey. Reads as "the focused thing" without color. */
+@define-color re0 #e0e0e0;
+@define-color re1 #b0b0b0;
+@define-color re2 #3a3a3a;   /* neutral endcap */
 
-@define-color ye0 #f8e063;
-@define-color ye1 #635618;
-@define-color ye2 #332D10;
-
-@define-color bl0 #63c3dd;
-@define-color bl1 #1f4f5c;
-@define-color bl2 #0c2329;
-
-@define-color vi0 #9d7cd8;
-@define-color vi1 #3f2f5c;
-@define-color vi2 #1f1733;
-
-@define-color cy0 #7dcfff;
-@define-color cy1 #2a5566;
-@define-color cy2 #11242f;
-
-@define-color wh0 #8a8a8a;
-@define-color wh1 #393B42;
-@define-color wh2 #1E2025;
-
-@define-color me0 #4D5A80;
-@define-color me1 #212638;
-@define-color me2 #0D1120;
-
-@define-color or0 #ffad00;
-@define-color or1 #634300;
-@define-color or2 #332300;
-
-@define-color pi0 #e79cfb;
-@define-color pi1 #5c3f63;
-@define-color pi2 #2e1f33;
+/* Semantic slots — greyed. Luminance differentiates:
+ *   ye0 bright   -> caution / urgent
+ *   gr0 mid      -> ok / linked
+ *   or0 dim      -> disconnected
+ *   cy0 mid-dim  -> low-battery info */
+@define-color ye0 #d0d0d0;
+@define-color gr0 #b0b0b0;
+@define-color or0 #777777;
+@define-color cy0 #909090;
 
 
 /* === GLOBAL === */
@@ -338,7 +339,7 @@ window#waybar.hidden {
 	border: none;
 	border-radius: 0;
 	padding: 0 16px;
-	color: @re0;
+	color: @wh0;
 }
 
 
@@ -382,6 +383,8 @@ window#waybar.hidden {
 	background-size: contain;
 }
 
+/* Bright-grey arrow — transitions from the bright #custom-nixos pill
+ * into the grey #workspaces pill. */
 #custom-arrow-left-re0 {
 	background-image: url("${re0L}");
 	background-position: left;
@@ -398,16 +401,18 @@ window#waybar.hidden {
 	background-color: @no1;
 }
 
-#custom-arrow-left-gr0 {
-	background-image: url("${gr0L}");
+/* Mid-grey arrows — segment the center window-title pill into a slightly
+ * lighter grey without introducing color. */
+#custom-arrow-left-no2 {
+	background-image: url("${no2L}");
 	background-position: left;
 	background-repeat: no-repeat;
 	background-size: contain;
 	background-color: @no1;
 }
 
-#custom-arrow-right-gr0 {
-	background-image: url("${gr0R}");
+#custom-arrow-right-no2 {
+	background-image: url("${no2R}");
 	background-position: right;
 	background-repeat: no-repeat;
 	background-size: contain;
@@ -415,7 +420,9 @@ window#waybar.hidden {
 }
 
 
-/* === ARCH LOGO === */
+/* === NIXOS LOGO ===
+ * Identity pill on the far left. Bright grey so it reads as the
+ * anchor without introducing color. */
 
 #custom-nixos {
 	color: @no0;
@@ -442,16 +449,17 @@ window#waybar.hidden {
 	margin: 0;
 	min-width: 30px;
 	font-weight: bolder;
-	color: @re0;
+	color: @wh1;
 	background: transparent;
 }
 
 #workspaces button label {
 	font-size: 15px;
 	padding: 0 10px;
-	color: @re0;
+	color: @wh1;
 }
 
+/* Active workspace — bright grey pill, matches the #custom-nixos anchor. */
 #workspaces button.active {
 	background-color: @re0;
 }
@@ -461,15 +469,15 @@ window#waybar.hidden {
 }
 
 #workspaces button:hover {
-	background-color: @re2;
+	background-color: @no3;
 }
 
 #workspaces button:hover label {
-	color: @re0;
+	color: @wh0;
 }
 
 #workspaces button.active:hover {
-	background-color: @re0;
+	background-color: @re1;
 }
 
 #workspaces button.active:hover label {
@@ -481,22 +489,22 @@ window#waybar.hidden {
 }
 
 #workspaces button.urgent label {
-	color: @ye2;
+	color: @no0;
 }
 
 /* === CLOCKS === */
 
 #clock.time,
 #clock.date {
-	color: @re0;
+	color: @wh0;
 	background-color: @no1;
 	padding: 0 32px;
 }
 
 #clock.time:hover,
 #clock.date:hover {
-	color: @re0;
-	background-color: @re2;
+	color: @fg;
+	background-color: @no3;
 }
 
 
@@ -507,7 +515,7 @@ window#waybar.hidden {
 #temperature,
 #temperature.cpu,
 #temperature.gpu {
-	color: @re0;
+	color: @wh0;
 	background-color: @no1;
 }
 
@@ -522,8 +530,8 @@ window#waybar.hidden {
 #temperature.cpu:hover,
 #temperature.gpu:hover,
 #temperature.critical:hover {
-	color: @re0;
-	background-color: @re2;
+	color: @fg;
+	background-color: @no3;
 }
 
 
@@ -531,11 +539,11 @@ window#waybar.hidden {
 
 #network {
 	background-color: @no1;
-	color: @re0;
+	color: @wh0;
 }
 
 #network.disconnected {
-	color: @wh0;
+	color: @no0;
 	background-color: @or0;
 }
 
@@ -545,31 +553,31 @@ window#waybar.hidden {
 }
 
 #pulseaudio {
-	color: @re0;
+	color: @wh0;
 	background-color: @no1;
 }
 
 #pulseaudio.muted {
-	color: @re1;
+	color: @wh2;
 }
 
 #network:hover,
 #pulseaudio:hover {
-	color: @re0;
-	background-color: @re2;
+	color: @fg;
+	background-color: @no3;
 }
 
 #pulseaudio.muted:hover {
-	color: @re1;
-	background-color: @re2;
+	color: @wh1;
+	background-color: @no3;
 }
 
 
 /* === MUSIC === */
 
 #custom-music {
-	background-color: @gr0;
-	color: @no0;
+	background-color: @no1;
+	color: @wh0;
 	padding: 0 32px;
 	border: none;
 }
@@ -579,22 +587,22 @@ window#waybar.hidden {
 
 #custom-notifications {
 	background-color: @no1;
-	color: @re1;
+	color: @wh1;
 	font-size: 20px;
 }
 
 #custom-notifications:hover {
-	color: @re0;
-	background-color: @re1;
+	color: @wh0;
+	background-color: @no3;
 }
 
 #custom-notifications.dnd-none {
-	color: @re1;
+	color: @wh2;
 }
 
 #custom-notifications.dnd-none:hover {
-	color: @re1;
-	background-color: @re2;
+	color: @wh1;
+	background-color: @no3;
 }
 
 /* === UPDATES === */
@@ -606,24 +614,24 @@ window#waybar.hidden {
 }
 
 #custom-updates:hover {
-	background-color: @gr1;
+	background-color: @no3;
 }
 
 
 /* === MISC === */
 
 #custom-wf-recorder {
-	color: @re0;
+	color: @wh0;
 	background-color: @no1;
 }
 
 #bluetooth {
-	color: @re0;
+	color: @wh0;
 	background-color: @no1;
 }
 
 #language {
-	color: @re0;
+	color: @wh0;
 	background-color: @no1;
 }
 
@@ -632,46 +640,48 @@ window#waybar.hidden {
 }
 
 #custom-brightness:hover {
-	background-color: @re1;
+	background-color: @no3;
 }
 
 #custom-brightness.max {
-	color: @re0;
+	color: @fg;
 }
 
 #custom-brightness.high {
-	color: @ye0;
-}
-
-#custom-brightness.mid {
 	color: @wh0;
 }
 
+#custom-brightness.mid {
+	color: @wh1;
+}
+
 #custom-brightness.low {
-	color: @cy0;
+	color: @wh2;
 }
 
 #custom-brightness.min {
-	color: @re0;
+	color: @wh2;
 }
 
 #tray {
-	color: @re0;
+	color: @wh0;
 	background-color: @no1;
 }
 
 #custom-wf-recorder:hover,
 #bluetooth:hover,
 #language:hover {
-	color: @re0;
-	background-color: @re2;
+	color: @fg;
+	background-color: @no3;
 }
 
-/* === WINDOW === */
+/* === WINDOW TITLE ===
+ * Center pill, one shade lighter than the module bg so it segments
+ * without color. */
 
 #window {
-	color: @no0;
-	background-color: @re0;
+	color: @wh0;
+	background-color: @no2;
 	padding: 0 32px;
 	border: none;
 }

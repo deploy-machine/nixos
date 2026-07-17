@@ -100,35 +100,42 @@ in
   };
 
   # ---------------- kitty ----------------
+  # Full greyscale terminal. Every ANSI slot is a luminance step so TUI
+  # apps still differentiate categories, but nothing renders in color.
+  # color1/9 (ANSI red — errors) is the brightest so critical output
+  # still stands out.
   programs.kitty = {
     enable = true;
     font = { name = "JetBrainsMono Nerd Font"; size = 12; };
     settings = {
       background = "#${c.bg}";
       foreground = "#${c.fg}";
-      cursor = "#${c.red}";
+      cursor = "#${c.fgBright}";
       cursor_text_color = "#${c.bg}";
       selection_background = "#${c.selection}";
-      selection_foreground = "#${c.fg}";
-      url_color = "#${c.cyan}";
-      active_border_color = "#${c.red}";
-      inactive_border_color = "#${c.border}";
+      selection_foreground = "#${c.fgBright}";
+      url_color = "#${c.fgBright}";
+      active_border_color = "#${c.border}";
+      inactive_border_color = "#${c.bgAlt}";
       active_tab_background = "#${c.bg}";
-      active_tab_foreground = "#${c.red}";
+      active_tab_foreground = "#${c.fgBright}";
       inactive_tab_background = "#${c.bgAlt}";
       inactive_tab_foreground = "#${c.comment}";
       background_opacity = "0.92";
       window_padding_width = 8;
 
-      # 16 terminal colors (milkoutside terminal table)
-      color0 = "#000000"; color8 = "#303030";
-      color1 = "#f93a82"; color9 = "#f93a82";
-      color2 = "#92cf9c"; color10 = "#5dd48c";
-      color3 = "#f8e063"; color11 = "#ffad00";
-      color4 = "#63c3dd"; color12 = "#4fd1e0";
-      color5 = "#e79cfb"; color13 = "#ff007c";
-      color6 = "#7dcfff"; color14 = "#62b9e8";
-      color7 = "#e0e0e0"; color15 = "#e8e8e8";
+      # ANSI 16 — pure grey ramp. Normal (0..7) sits in the mid range;
+      # bright (8..15) is one luminance step higher. color1/9 is the
+      # brightest so `ls` errors, git-diff removals, and other "red"
+      # signals still catch the eye.
+      color0  = "#0a0a0a"; color8  = "#3a3a3a";
+      color1  = "#d0d0d0"; color9  = "#e8e8e8";
+      color2  = "#808080"; color10 = "#a0a0a0";
+      color3  = "#c0c0c0"; color11 = "#d0d0d0";
+      color4  = "#909090"; color12 = "#b0b0b0";
+      color5  = "#a0a0a0"; color13 = "#c0c0c0";
+      color6  = "#b0b0b0"; color14 = "#c8c8c8";
+      color7  = "#b0b0b0"; color15 = "#d0d0d0";
     };
   };
 
@@ -140,19 +147,23 @@ in
   };
 
   xdg.configFile."rofi/milkoutside.rasi".text = ''
+    /* Full greyscale launcher — prompt caret and selected row are
+     * bright grey; everything else is a darker step. */
     * {
-        bg:      #${c.bg};
-        bg-alt:  #${c.bgAlt};
-        fg:      #${c.fg};
-        accent:  #${c.red};
-        muted:   #${c.comment};
+        bg:       #${c.bg};
+        bg-alt:   #${c.bgAlt};
+        surface:  #${c.surface};
+        fg:       #${c.fg};
+        accent:   #${c.red};
+        border:   #${c.border};
+        muted:    #${c.muted};
         background-color: transparent;
         text-color: @fg;
     }
     window {
         background-color: @bg;
-        border: 2px;
-        border-color: @accent;
+        border: 1px;
+        border-color: @border;
         border-radius: 8px;
         width: 600px;
         padding: 16px;
@@ -188,35 +199,39 @@ in
       widgets = [ "title" "dnd" "notifications" "mpris" ];
     };
     style = ''
+      /* Full greyscale notifications. Bright grey is used for the
+       * close-button and critical-notification border so the "look
+       * at this" hint still lands by luminance.
+       */
       * {
         font-family: "JetBrainsMono Nerd Font";
         background: transparent;
       }
       .control-center {
         background: #${c.bg};
-        border: 2px solid #${c.red};
+        border: 1px solid #${c.border};
         border-radius: 12px;
         margin: 12px;
         padding: 10px;
       }
       .notification {
         background: #${c.bgAlt};
-        border-left: 3px solid #${c.red};
+        border-left: 3px solid #${c.border};
         border-radius: 8px;
         margin: 6px;
         padding: 6px;
       }
       .notification-content { color: #${c.fg}; padding: 6px; }
-      .summary { color: #${c.red}; font-weight: bold; }
+      .summary { color: #${c.fgBright}; font-weight: bold; }
       .body { color: #${c.fgDim}; }
       .close-button {
         background: #${c.red};
         color: #${c.bg};
         border-radius: 4px;
       }
-      .control-center .widget-title { color: #${c.cyan}; }
+      .control-center .widget-title { color: #${c.fgDim}; }
       .control-center .notification.critical {
-        border-left: 3px solid #${c.red1};
+        border-left: 3px solid #${c.red};
       }
     '';
   };
@@ -246,7 +261,7 @@ in
         {
           monitor     = "";
           text        = "$TIME";
-          color       = "rgba(${c.red}ff)";
+          color       = "rgba(${c.fgBright}ff)";
           font_size   = 96;
           font_family = "GeistMono Nerd Font Bold";
           position    = "0, 220";
@@ -265,6 +280,8 @@ in
         }
       ];
 
+      # Input field: grey outline; check_color (verifying passphrase)
+      # is bright grey — a "doing something" hint via luminance only.
       input-field = lib.mkForce [{
         monitor           = "";
         size              = "320, 56";
@@ -272,12 +289,12 @@ in
         dots_size         = 0.2;
         dots_spacing      = 0.3;
         dots_center       = true;
-        outer_color       = "rgba(${c.red}ff)";
+        outer_color       = "rgba(${c.border}ff)";
         inner_color       = "rgba(${c.bgAlt}d9)";
         font_color        = "rgba(${c.fg}ff)";
-        check_color       = "rgba(${c.orange}ff)";
-        fail_color        = "rgba(${c.red1}ff)";
-        capslock_color    = "rgba(${c.yellow}ff)";
+        check_color       = "rgba(${c.red}ff)";
+        fail_color        = "rgba(${c.danger}ff)";
+        capslock_color    = "rgba(${c.warning}ff)";
         fade_on_empty     = false;
         placeholder_text  = "<i>Password…</i>";
         hide_input        = false;

@@ -3,17 +3,66 @@
 #
 # Stylix split: bat, fzf, yazi and lazygit are Stylix targets, so they theme to
 # milkoutside automatically (don't set their colours here or it fights Stylix).
-# lsd, zoxide, dust, duf, procs, … carry their own palettes, which look great now
-# that GeistMono Nerd Font is the system monospace.
+# lsd is pulled onto the grayscale ramp below; zoxide, dust, duf, procs, … still
+# carry their own palettes, which look fine on GeistMono Nerd Font.
 { config, pkgs, lib, ... }:
+let c = import ./colors.nix;
+in
 {
   # ls -> lsd : icons + colour. enableZshIntegration creates the alias family
   # (ls, ll = -l, la = -A, lt = --tree, lla = -lA, llt = -l --tree).
+  # Colors mapped onto the koda-dark grey ramp from colors.nix. Icons stay on
+  # the default (auto) so glyphs still render in the terminal.
+  # Setting a non-empty `colors` makes home-manager flip color.theme to "custom".
   programs.lsd = {
     enable = true;
     enableZshIntegration = true;
-    # lsd's default theme is good; tweak via settings/colors if you ever want to.
-    # settings = { date = "relative"; };
+    colors = {
+      user  = "#${c.fg}";
+      group = "#${c.dim}";
+      permission = {
+        read        = "#${c.fg}";
+        write       = "#${c.fgDim}";
+        exec        = "#${c.fgBright}";
+        exec-sticky = "#${c.fgBright}";
+        no-access   = "#${c.danger}";
+        octal       = "#${c.fgDim}";
+        acl         = "#${c.dim}";
+        context     = "#${c.dim}";
+      };
+      date = {
+        hour-old = "#${c.fgBright}";
+        day-old  = "#${c.fg}";
+        older    = "#${c.dim}";
+      };
+      size = {
+        none   = "#${c.muted}";
+        small  = "#${c.fgDim}";
+        medium = "#${c.fg}";
+        large  = "#${c.fgBright}";
+      };
+      inode = {
+        valid   = "#${c.fg}";
+        invalid = "#${c.muted}";
+      };
+      tree-edge = "#${c.border}";
+      links = {
+        valid   = "#${c.fg}";
+        invalid = "#${c.danger}";
+      };
+      git-status = {
+        default        = "#${c.fg}";
+        unmodified     = "#${c.dim}";
+        ignored        = "#${c.muted}";
+        new-in-index   = "#${c.success}";
+        new-in-workdir = "#${c.success}";
+        typechange     = "#${c.warning}";
+        deleted        = "#${c.danger}";
+        renamed        = "#${c.info}";
+        modified       = "#${c.warning}";
+        conflicted     = "#${c.danger}";
+      };
+    };
   };
 
   # cat -> bat : syntax highlighting. bat is a Stylix target -> auto-themed.

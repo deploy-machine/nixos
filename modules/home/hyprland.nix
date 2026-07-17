@@ -174,7 +174,9 @@ let
         gaps_in  = 5
         gaps_out = 20
         border_size = 2
-        col.active_border = rgb(${c.red}) rgb(${c.red1}) 45deg
+        # Full greyscale rice: active window border is a bright→brighter
+        # grey gradient. Focus signal reads via luminance, no color.
+        col.active_border = rgb(${c.fg}) rgb(${c.fgBright}) 45deg
         col.inactive_border = rgb(${c.border})
         resize_on_border = false
         allow_tearing = false
@@ -191,8 +193,8 @@ let
             enabled = true
             range = 8
             render_power = 3
-            color = 0xaa${c.red}
-            color_inactive = 0x661a1a1a
+            color = 0xaa000000
+            color_inactive = 0x66000000
         }
 
         blur {
@@ -461,8 +463,9 @@ let
             gaps_out = 20,
             border_size = 2,
             col = {
-                -- signature milkoutside red gradient
-                active_border   = { colors = {"rgb(${c.red})", "rgb(${c.red1})"}, angle = 45 },
+                -- Full greyscale: bright grey → brighter grey gradient
+                -- on the active border. Luminance-only focus signal.
+                active_border   = { colors = {"rgb(${c.fg})", "rgb(${c.fgBright})"}, angle = 45 },
                 inactive_border = "rgb(${c.border})",
             },
             resize_on_border = false,
@@ -479,8 +482,8 @@ let
                 enabled      = true,
                 range        = 8,
                 render_power = 3,
-                color          = 0xaa${c.red},   -- red neon glow on the active window
-                color_inactive = 0x661a1a1a,
+                color          = 0xaa000000,   -- neutral drop shadow, no color cast
+                color_inactive = 0x66000000,
             },
             blur = {
                 enabled  = true,
