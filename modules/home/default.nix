@@ -25,7 +25,7 @@
     nerd-fonts.jetbrains-mono # kept as a secondary monospace
     nerd-fonts.symbols-only   # glyph fallback so no icon ever renders as tofu
     cava                      # audio visualizer
-    btop                      # system monitor
     fastfetch                 # system info
+    # btop moved to cli.nix as programs.btop.enable so Stylix themes it.
   ];
 }

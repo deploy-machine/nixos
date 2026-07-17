@@ -68,6 +68,12 @@ in
   # cat -> bat : syntax highlighting. bat is a Stylix target -> auto-themed.
   programs.bat.enable = true;
 
+  # btop : system monitor. Enabling here (rather than dropping the package into
+  # default.nix) lets Stylix write btop/themes/stylix.theme and flip
+  # color_theme; without programs.btop.enable, stylix's btop target is dormant
+  # and btop falls back to its rainbow "Default" theme.
+  programs.btop.enable = true;
+
   # fuzzy finder : Ctrl-R history, Ctrl-T files, ALT-C cd. Stylix-themed.
   programs.fzf = {
     enable = true;
