@@ -10,6 +10,15 @@
   networking.networkmanager.enable = true;
   networking.firewall.allowedTCPPorts = [ 22 ];
 
+  # Tailscale mesh VPN. `openFirewall` punches UDP 41641 for direct (not
+  # DERP-relayed) connections. Run `sudo tailscale up` once after rebuild to
+  # authenticate; the daemon persists state in /var/lib/tailscale across
+  # rebuilds. The `tailscale` CLI is added to systemPackages by the service.
+  services.tailscale = {
+    enable = true;
+    openFirewall = true;
+  };
+
   time.timeZone = "Europe/Amsterdam";
   i18n.defaultLocale = "en_US.UTF-8";
   i18n.extraLocaleSettings = {
