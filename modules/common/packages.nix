@@ -1,4 +1,14 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, inputs, ... }:
+let
+  # claude-code moves faster than either release channel — new model IDs
+  # (e.g. Fable) ship in the CLI within days, but the release-branch backport
+  # can lag by weeks. Sourcing this one package from nixos-unstable keeps the
+  # CLI current without bumping the whole system closure.
+  unstable = import inputs.nixpkgs-unstable {
+    inherit (pkgs) system;
+    config.allowUnfree = true;
+  };
+in
 {
   environment.systemPackages = with pkgs;
     # Always present (FOSS).
@@ -18,7 +28,7 @@
     # Proprietary extras. Skipped automatically when the host opted out of
     # unfree software (nixpkgs.config.allowUnfree = false).
     ++ lib.optionals config.nixpkgs.config.allowUnfree [
-      claude-code
+      unstable.claude-code
       chromium
     ];
 }

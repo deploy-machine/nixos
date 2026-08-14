@@ -1,5 +1,26 @@
 { config, lib, pkgs, ... }:
-let c = import ./colors.nix;
+let
+  c = import ./colors.nix;
+  allowUnfree = pkgs.config.allowUnfree or false;
+
+  # Tuta Mail PWA. Tuta upstream ships only an x86_64 Electron AppImage, and
+  # running it through muvm+FEX on Asahi hits an early Chromium dbus abort
+  # inside the microVM that no amount of --no-sandbox / dbus-daemon
+  # bootstrap resolved. The Electron client is just a wrapper around
+  # app.tuta.com, so a chromium `--app` window gives the same webapp with
+  # the same features (E2E crypto is browser-side JS either way), no
+  # emulator required. Isolated --user-data-dir so tuta cookies /
+  # localStorage stay out of the general chromium browsing profile;
+  # --class sets WM_CLASS / Wayland app_id so Hyprland rules can target
+  # this window as "Tuta" rather than the generic "chromium".
+  tuta-mail = pkgs.writeShellScriptBin "tuta-mail" ''
+    exec ${pkgs.chromium}/bin/chromium \
+      --app=https://app.tuta.com \
+      --user-data-dir="''${XDG_DATA_HOME:-$HOME/.local/share}/tuta-pwa" \
+      --class=Tuta \
+      --name=Tuta \
+      "$@"
+  '';
 in
 {
   # ---------------- desktop packages ----------------
@@ -8,8 +29,10 @@ in
   # the "every desktop should have this" GUI set. Two guards on the latter:
   #   - unrar is unfree; skipped on FOSS-only hosts.
   #   - onlyoffice + tutanota-desktop are upstream-binary x86_64-only;
-  #     skipped on aarch64 (e.g. M1 / Asahi). Pick libreoffice-fresh /
-  #     thunderbird in a host override if you need replacements there.
+  #     skipped on aarch64 (e.g. M1 / Asahi). For onlyoffice pick
+  #     libreoffice-fresh in a host override; tuta is provided on all
+  #     hosts (including aarch64) via the `tuta-mail` chromium PWA
+  #     wrapper below.
   home.packages = with pkgs; [
     mpv             # default video + audio player
     imv             # wayland-native image viewer
@@ -56,9 +79,31 @@ in
     # zoom-us is upstream x86_64 + unfree. On aarch64 (Asahi) it ships via the
     # muvm-zoom wrapper in modules/roles/gaming-asahi.nix instead.
     zoom-us
-  ] ++ lib.optionals (pkgs.config.allowUnfree or false) [
+  ] ++ lib.optionals allowUnfree [
     unrar                      # .rar extraction (unfree license)
+    obsidian                   # markdown / mermaid viewer (proprietary license)
+    tuta-mail                  # chromium --app wrapper for app.tuta.com
   ];
+
+  # Rofi / Wofi / any XDG launcher reads .desktop files from
+  # ~/.local/share/applications. Home-manager writes this entry there.
+  # Gated on allowUnfree to match the tuta-mail script above (chromium
+  # itself is unfree-gated in modules/common/packages.nix).
+  xdg.desktopEntries = lib.mkIf allowUnfree {
+    tuta-mail = {
+      name          = "Tuta Mail";
+      genericName   = "Encrypted Email";
+      comment       = "Tuta Mail (chromium PWA)";
+      exec          = "tuta-mail %U";
+      terminal      = false;
+      type          = "Application";
+      icon          = "mail-message";
+      categories    = [ "Network" "Email" ];
+      mimeType      = [ "x-scheme-handler/mailto" ];
+      startupNotify = true;
+      settings      = { StartupWMClass = "Tuta"; };
+    };
+  };
 
   # Make sure ~/Pictures, ~/Videos, ~/Documents etc. exist — hyprshot
   # writes to $XDG_PICTURES_DIR, wf-recorder writes to ~/Videos in the bind.
@@ -360,6 +405,7 @@ in
       web   = "chromium-browser.desktop";
       files = "thunar.desktop";
       text  = "org.gnome.TextEditor.desktop";
+      md    = "obsidian.desktop";
     in {
       "inode/directory"          = files;
 
@@ -370,7 +416,7 @@ in
       "text/html"                = web;
 
       "text/plain"               = text;
-      "text/markdown"            = text;
+      "text/markdown"            = md;
       "application/json"         = text;
       "application/xml"          = text;
 

@@ -5,6 +5,13 @@
     # Default channel for the x86_64 host. Pinned to nixos-26.05.
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 
+    # Rolling channel, used only to pull a small set of fast-moving packages
+    # (currently just claude-code) without moving the whole system channel.
+    # Keeping linux-asahi / Mesa on the pinned 25.11 input preserves cache
+    # hits on nixos-apple-silicon.cachix.org — see modules/common/packages.nix
+    # for the single-package overlay.
+    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
+
     home-manager = {
       url = "github:nix-community/home-manager/release-26.05";
       inputs.nixpkgs.follows = "nixpkgs";

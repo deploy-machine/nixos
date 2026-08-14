@@ -25,6 +25,21 @@
     };
     # starship owns the prompt (HM 25.05+ uses initContent; older HM: initExtra)
     initContent = ''eval "$(starship init zsh)"'';
+
+    # `nrs` = "nixos rebuild switch". Wraps the two-step ritual this repo
+    # needs on every rebuild:
+    #   1. `nix flake update config-repo` — /etc/nixos uses a path: input to
+    #      /home/simbaclaws/nixos, and Nix locks path inputs by content
+    #      hash. Without this step the lock keeps serving stale content,
+    #      so edits under this repo silently don't apply. Documented in
+    #      the flake-lock-path-input-gotcha memory.
+    #   2. `nixos-rebuild switch --impure` — --impure is needed on the
+    #      Asahi host because apple-silicon-support pulls firmware from
+    #      /etc/nixos at eval time; a pure build would refuse to read it.
+    # Runs both under a single sudo so you're prompted for a password once.
+    shellAliases = {
+      nrs = "sudo sh -c 'nix flake update config-repo --flake /etc/nixos && nixos-rebuild switch --flake /etc/nixos --impure'";
+    };
   };
 
   # Exact cybr prompt, glyphs preserved, palette = milkoutside.
