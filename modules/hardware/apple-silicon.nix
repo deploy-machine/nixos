@@ -77,17 +77,11 @@
   # guest pins anonymous RSS that the host can't reclaim — but heavy browser
   # tabs and Nix builds hit the same wall. Two layers of relief:
   #
-  #   1. zramSwap: compressed in-RAM swap (zstd, ~2-3× compression). No SSD
-  #      wear, fast pages-out for cold anon pages. Default priority 5 — used
-  #      first under pressure.
+  #   1. zramSwap (common/base.nix): compressed in-RAM swap. Default
+  #      priority 5 — used first under pressure.
   #   2. /var/lib/swapfile (8 GiB): real disk swap as a last-resort backstop
   #      for runaway allocations that overflow zram. Lower priority than
   #      zram, so only touched when zram is full.
-  zramSwap = {
-    enable = true;
-    memoryPercent = 50;
-    algorithm = "zstd";
-  };
   swapDevices = [{
     device = "/var/lib/swapfile";
     size = 8 * 1024; # MiB

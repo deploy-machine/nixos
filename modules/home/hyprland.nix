@@ -153,7 +153,6 @@ let
     ############################################################ AUTOSTART
     exec-once = ${wallpaperBin}-daemon
     exec-once = ${wallpaperScript}/bin/hypr-wallpaper
-    exec-once = nm-applet --indicator
     exec-once = sleep 6 && systemctl --user start wayvnc.service
     exec-once = ${pinScript}/bin/hypr-pin-workspaces
     # waybar + swaync are started by their home-manager systemd user services

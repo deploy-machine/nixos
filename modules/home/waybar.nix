@@ -73,8 +73,22 @@ in
   home.packages = [
     waybarPkg
     pkgs.pavucontrol            # pulseaudio module on-click
-    pkgs.networkmanagerapplet   # provides nm-connection-editor for network on-click
+    pkgs.networkmanagerapplet   # nm-connection-editor, reachable from networkmanager_dmenu
+    pkgs.networkmanager_dmenu   # rofi AP picker for network on-click
   ];
+
+  # Rofi-based wifi picker (network module on-click). Uses the session rofi
+  # theme; passphrase entry runs obscured via rofi's -password mode.
+  xdg.configFile."networkmanager-dmenu/config.ini".text = ''
+    [dmenu]
+    dmenu_command = rofi -dmenu -i
+    rofi_highlight = True
+    compact = True
+    wifi_chars = ▂▄▆█
+
+    [dmenu_passphrase]
+    obscure = True
+  '';
 
   xdg.configFile."waybar/config.jsonc".text = ''
 [
@@ -217,7 +231,7 @@ in
     "network": {
       "format-wifi": "",
       "format-ethernet": "",
-      "on-click": "nm-connection-editor",
+      "on-click": "networkmanager_dmenu",
       "tooltip-format-wifi": "Network: <b>{essid}</b>\nSignal strength: <b>{signaldBm}dBm ({signalStrength}%)</b>\nFrequency: <b>{frequency}MHz</b>\nInterface: <b>{ifname}</b>\nIP: <b>{ipaddr}/{cidr}</b>\nGateway: <b>{gwaddr}</b>\nNetmask: <b>{netmask}</b>\n<span foreground='#eed49f'> {bandwidthDownBytes}</span> <span foreground='#b7bdf8'> {bandwidthUpBytes}</span>",
       "tooltip-format-ethernet": "Network: <b>{essid}</b>\nInterface: <b>{ifname}</b>\nIP: <b>{ipaddr}/{cidr}</b>\nGateway: <b>{gwaddr}</b>\nNetmask: <b>{netmask}</b>\n<span foreground='#eed49f'> {bandwidthDownBytes}</span> <span foreground='#b7bdf8'> {bandwidthUpBytes}</span>",
       "format-linked": "󰈀 {ifname} (No IP)",

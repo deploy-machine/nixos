@@ -5,6 +5,13 @@
   # M-series Macs has no EFI vars to touch.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = lib.mkDefault true;
+  # Cap the boot menu so old generations don't accumulate forever. On the
+  # Asahi host every generation keeps a kernel+initrd on the small ESP, and
+  # a full /boot makes rebuilds fail.
+  boot.loader.systemd-boot.configurationLimit = 10;
+
+  # Clear /tmp on boot (crashed-build litter, extracted archives, …).
+  boot.tmp.cleanOnBoot = true;
 
   # Networking. Per-host hostname is set in hosts/<hostname>/default.nix.
   networking.networkmanager.enable = true;
@@ -97,6 +104,40 @@
 
   # Flakes + the nix command are required for `nixos-rebuild switch --flake`.
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
+
+  # Store hygiene. GC keeps two weeks of generations (rollback window) and
+  # runs weekly; optimise hardlinks identical store files. GC'd Asahi
+  # kernels re-substitute from cachix, so deletion is cheap to undo.
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = "--delete-older-than 14d";
+  };
+  nix.optimise.automatic = true;
+
+  # Weekly TRIM pass so the SSD controller learns about freed blocks —
+  # without it write performance and wear-leveling degrade over time.
+  services.fstrim.enable = true;
+
+  # Compressed in-RAM swap (zstd, ~2-3× compression). Cheap pressure valve
+  # on every host; the Apple Silicon module layers a real swapfile on top
+  # for the muvm/OOM case documented there.
+  zramSwap = {
+    enable = true;
+    memoryPercent = 50;
+    algorithm = "zstd";
+  };
+
+  # Firmware updates via fwupd/LVFS (UEFI, SSDs, peripherals). x86 only —
+  # LVFS has no coverage for Apple Silicon machines.
+  services.fwupd.enable = pkgs.stdenv.hostPlatform.isx86_64;
+
+  # Smartcard daemon for the CCID half of a YubiKey (OpenPGP, PIV, most of
+  # `ykman`). The FIDO/WebAuthn half talks hidraw directly and doesn't need
+  # this. If `gpg --card-status` ever reports the card as unavailable, add
+  # `disable-ccid` to scdaemon.conf so gpg goes through pcscd instead of
+  # fighting it for the USB interface.
+  services.pcscd.enable = true;
 
   # nixpkgs.config.allowUnfree is set per-host (the bootstrap asks). Anything
   # else nixpkgs-config-shaped is fine to set here unconditionally — it only

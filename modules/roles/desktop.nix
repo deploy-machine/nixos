@@ -51,6 +51,21 @@
   # Battery / AC state for desktop apps + tray indicators.
   services.upower.enable = true;
 
+  # Printing capability: CUPS with driverless IPP-everywhere, plus Avahi
+  # mDNS so network printers are discovered automatically. nssmdns4 lets
+  # other apps resolve printer.local names too.
+  services.printing.enable = true;
+  services.avahi = {
+    enable = true;
+    nssmdns4 = true;
+    openFirewall = true;
+  };
+
+  # SMART disk-health monitoring (logs + wall message on pre-failure
+  # attributes). x86 only: Apple's NVMe controller doesn't speak standard
+  # SMART, so smartd would just error on the Asahi host.
+  services.smartd.enable = pkgs.stdenv.hostPlatform.isx86_64;
+
   # CPU performance profiles (balanced / power-saver / performance). The
   # laptop role prefers tlp and overrides this to false; mkDefault loses to
   # the laptop role's plain `false`.

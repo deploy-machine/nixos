@@ -15,6 +15,7 @@ in
     [
       neovim gh git curl wget unzip
       gcc gnumake ripgrep fd tree-sitter
+      yubikey-manager   # `ykman` — pairs with services.pcscd in base.nix
 
       nixd alejandra
       lua-language-server stylua

@@ -122,6 +122,7 @@
         };
         roles = {
           headless      = ./modules/roles/headless.nix;
+          nas           = ./modules/roles/nas.nix;
           desktop       = ./modules/roles/desktop.nix;
           laptop        = ./modules/roles/laptop.nix;
           multi-monitor = ./modules/roles/multi-monitor.nix;
