@@ -25,7 +25,8 @@ nightlight)
   fi
   ;;
 bar)
-  pkill -SIGUSR1 waybar || true
+  # Quickshell IPC (see IpcHandler in modules/home/quickshell/shell.qml).
+  qs ipc call bar toggle || true
   ;;
 silence)
   state=$(swaync-client -d)

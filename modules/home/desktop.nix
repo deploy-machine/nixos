@@ -297,7 +297,8 @@ in
 
       background = lib.mkForce [{
         monitor     = "";
-        path        = "${config.home.homeDirectory}/Wallpapers/nixos.png";
+        # Follows the active theme's default background (theme.nix).
+        path        = "${config.home.homeDirectory}/${(import ../omarchy/theme.nix).wallpaper}";
         blur_passes = 3;
         blur_size   = 8;
       }];

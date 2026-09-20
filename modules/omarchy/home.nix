@@ -34,7 +34,8 @@ let
     (script "omarchy-zoom"             [ pkgs.jq pkgs.bc ])
     (script "omarchy-notification"     [ pkgs.libnotify pkgs.curl pkgs.coreutils ])
     (script "omarchy-menu-keybindings" [ pkgs.rofi pkgs.jq pkgs.coreutils pkgs.util-linux ])
-    (script "omarchy-wallpaper"        [ pkgs.rofi pkgs.findutils pkgs.libnotify pkgs.coreutils ])
+    (script "omarchy-wallpaper"        [ pkgs.rofi pkgs.findutils pkgs.jq pkgs.libnotify pkgs.coreutils ])
+    (script "omarchy-theme-set"        [ pkgs.rofi pkgs.jq pkgs.gnused pkgs.gnugrep pkgs.libnotify pkgs.coreutils ])
     (script "omarchy-update"           [ pkgs.gum pkgs.git pkgs.coreutils ])
   ];
 
@@ -54,4 +55,17 @@ in
   home.packages = scripts ++ menuPackages ++ [
     pkgs.rofimoji   # emoji picker (SUPER+CTRL+E / Trigger menu)
   ];
+
+  # Per-theme background sets, deployed where omarchy-wallpaper and the
+  # theme default (theme.nix) expect them. Deploy every theme's set — not
+  # just the active one — so omarchy-theme-set can preview/switch without
+  # a rebuild-before-look chicken-and-egg.
+  home.file."Wallpapers/themes/koda-dark" = {
+    source = ./themes/koda-dark/backgrounds;
+    recursive = true;
+  };
+  home.file."Wallpapers/themes/vantablack" = {
+    source = ./themes/vantablack/backgrounds;
+    recursive = true;
+  };
 }

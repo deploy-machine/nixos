@@ -106,15 +106,18 @@ toggle_menu() {
 }
 
 style_menu() {
-  # Theme itself is off-limits by design (greyscale rice is declarative);
-  # this only covers what omarchy calls style.background / config editing.
+  # Theme switching is declarative: omarchy-theme-set edits theme.json and
+  # rebuilds, so every colors.nix consumer follows. All registered themes
+  # are monochrome — the luminance-only rice survives a switch.
   case $(menu "Style" \
+    "󰸌  Theme" \
     "  Background" \
-    "  Edit palette (colors.nix)" \
+    "  Edit palettes (theme.nix)" \
     "  Edit Hyprland look" \
     "󰁍  Back") in
+  *Theme*) omarchy-theme-set ;;
   *Background*) omarchy-wallpaper ;;
-  *palette*) edit_in_term modules/home/colors.nix ;;
+  *palettes*) edit_in_term modules/omarchy/theme.nix ;;
   *Hyprland*) edit_in_term modules/home/hyprland.nix ;;
   *Back*) main_menu ;;
   esac

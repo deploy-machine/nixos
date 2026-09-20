@@ -1,7 +1,10 @@
 { config, lib, pkgs, ... }:
 let
   c = import ./colors.nix;
-  wallpaper = "${config.home.homeDirectory}/Wallpapers/nixos.png";
+  # Default background follows the active theme (modules/omarchy/theme.nix);
+  # background sets are deployed to ~/Wallpapers/themes/<name>/ by
+  # modules/omarchy/home.nix. omarchy-wallpaper switches within the set.
+  wallpaper = "${config.home.homeDirectory}/${(import ../omarchy/theme.nix).wallpaper}";
 
   # 26.05 renamed swww → awww; 25.11 still ships swww. The CLIs are
   # identical (`<bin> img <path>`, `<bin>-daemon`) so the autostart lines

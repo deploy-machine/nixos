@@ -2,7 +2,7 @@
 {
   imports = [
     ./hyprland.nix
-    ./waybar.nix
+    ./quickshell        # top bar (waybar.nix kept in-tree but unimported)
     ./desktop.nix
     ./neovim.nix
     ./shell.nix

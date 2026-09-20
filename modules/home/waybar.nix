@@ -154,7 +154,7 @@ in
       "tooltip": false
     },
     "custom/nixos": {
-      "format": "    ",
+      "format": "",
       "tooltip": false,
       "on-click": "rofi -show drun",
       "on-click-right": "rofi -show run"
@@ -436,12 +436,14 @@ window#waybar.hidden {
 
 /* === NIXOS LOGO ===
  * Identity pill on the far left. Bright grey so it reads as the
- * anchor without introducing color. */
+ * anchor without introducing color. Compact: the glyph plus a slim
+ * padding instead of the old spaced-out format string. */
 
 #custom-nixos {
 	color: @no0;
 	background-color: @re0;
 	font-weight: bold;
+	padding: 0 10px;
 }
 
 #custom-nixos:hover {
@@ -450,18 +452,21 @@ window#waybar.hidden {
 }
 
 
-/* === WORKSPACES === */
+/* === WORKSPACES ===
+ * Compact: 10 persistent buttons were eating half a laptop screen at
+ * 30px min-width + 10px label padding inside a 16px-padded pill. */
 
 #workspaces {
 	background-color: @no1;
 	border: none;
+	padding: 0 4px;
 }
 
 #workspaces button {
 	border-radius: 0;
 	border: none;
 	margin: 0;
-	min-width: 30px;
+	min-width: 16px;
 	font-weight: bolder;
 	color: @wh1;
 	background: transparent;
@@ -469,7 +474,7 @@ window#waybar.hidden {
 
 #workspaces button label {
 	font-size: 15px;
-	padding: 0 10px;
+	padding: 0 5px;
 	color: @wh1;
 }
 
