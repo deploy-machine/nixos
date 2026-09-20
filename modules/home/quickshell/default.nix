@@ -123,10 +123,16 @@ in
     obscure = True
   '';
 
-  xdg.configFile."quickshell/shell.qml".source = ./shell.qml;
-  xdg.configFile."quickshell/Bar.qml".source = ./Bar.qml;
-  xdg.configFile."quickshell/qmldir".source = ./qmldir;
-  xdg.configFile."quickshell/Theme.qml".text = themeQml;
+  # One store directory for the whole config: per-file symlinks break
+  # quickshell's sibling resolution (it resolves shell.qml through the
+  # symlink and then can't find qmldir/Bar.qml next to it).
+  xdg.configFile."quickshell".source = pkgs.runCommand "quickshell-config" { } ''
+    mkdir -p "$out"
+    cp ${./shell.qml} "$out/shell.qml"
+    cp ${./Bar.qml} "$out/Bar.qml"
+    cp ${./qmldir} "$out/qmldir"
+    cp ${pkgs.writeText "Theme.qml" themeQml} "$out/Theme.qml"
+  '';
 
   # Run as part of the graphical session, like waybar before it.
   systemd.user.services.quickshell = {
