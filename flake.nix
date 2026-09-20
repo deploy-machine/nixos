@@ -98,6 +98,38 @@
           modules = extraModules;
         };
 
+      # Omarchy-style per-project development environments. Consumed by the
+      # omarchy-dev-env menu script (Install > Development), or manually:
+      #   nix flake new -t path:/home/<user>/nixos#node myproject
+      # Each template ships a devShell + .envrc (direnv), replacing omarchy's
+      # global `mise use` model with per-project reproducible shells.
+      templates =
+        let
+          t = name: description: {
+            path = ./templates/${name};
+            inherit description;
+          };
+        in {
+          ruby    = t "ruby"    "Ruby on Rails development environment";
+          node    = t "node"    "Node.js development environment";
+          bun     = t "bun"     "Bun development environment";
+          deno    = t "deno"    "Deno development environment";
+          go      = t "go"      "Go development environment";
+          php     = t "php"     "PHP development environment";
+          laravel = t "laravel" "PHP + Laravel development environment";
+          symfony = t "symfony" "PHP + Symfony development environment";
+          python  = t "python"  "Python development environment (uv + ruff)";
+          elixir  = t "elixir"  "Elixir development environment";
+          phoenix = t "phoenix" "Elixir + Phoenix development environment";
+          rust    = t "rust"    "Rust development environment";
+          java    = t "java"    "Java development environment";
+          zig     = t "zig"     "Zig development environment";
+          ocaml   = t "ocaml"   "OCaml development environment";
+          dotnet  = t "dotnet"  ".NET development environment";
+          clojure = t "clojure" "Clojure development environment";
+          scala   = t "scala"   "Scala development environment";
+        };
+
       # All importable modules surfaced as paths so the local flake can pick
       # only what it needs. Bootstrap composes the modules list by category.
       nixosModules = {

@@ -1,5 +1,9 @@
 { config, lib, pkgs, ... }:
 {
+  # Omarchy-style system plumbing: docker + menu-managed database
+  # containers (Install > Docker database edits modules/omarchy/dbs.json).
+  imports = [ ../omarchy/system.nix ];
+
   # Conventional graphical login: greetd → tuigreet, user selects Hyprland.
   # Mutually exclusive with the headless and gaming-kiosk roles (they all set
   # services.greetd.settings).

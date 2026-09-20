@@ -9,6 +9,7 @@
     ./cli.nix
     ./nixcord.nix
     ./stylix.nix
+    ../omarchy/home.nix
   ];
 
   home.username = username;

@@ -12,10 +12,11 @@ let
   # Hyprland 0.55 (26.05 channel) loads ~/.config/hypr/hyprland.lua natively;
   # Hyprland 0.52 (25.11 channel, Asahi) does NOT — it silently ignores .lua
   # and generates an autogen .conf. Pick the right format per channel.
-  # Asahi laptops also have an Apple Cmd key that maps to Super, so SUPER is
-  # the natural modifier there; x86 keyboards lack it, so ALT stays.
+  # SUPER everywhere since the full-Omarchy keybind layout: omarchy leans on
+  # ALT+TAB / SUPER+ALT chords, so ALT can't be the main modifier anymore.
+  # (Asahi's Cmd key maps to Super; on x86 it's the Windows key.)
   isAsahi = pkgs.stdenv.hostPlatform.isAarch64;
-  mainMod = if isAsahi then "SUPER" else "ALT";
+  mainMod = "SUPER";
 
   # Discord client tracks what nixcord.nix actually installs: upstream Discord
   # is unfree + x86_64-only, so aarch64 falls back to Vesktop.
@@ -274,105 +275,211 @@ let
     workspace = f[1],   gapsout:0, gapsin:0
 
     ######################################################### KEYBINDINGS
-    # Programs (single-letter mnemonics).
-    bind = $mainMod,         Q, killactive
-    bind = $mainMod SHIFT,   Q, exit
-    bind = $mainMod,         T, exec, $terminal
-    bind = $mainMod,         R, exec, $menu
-    bind = $mainMod SHIFT,   F, exec, $fileManager
-    bind = $mainMod,         B, exec, chromium
-    bind = $mainMod,         D, exec, ${discordBin}
-    bind = $mainMod,         A, exec, pavucontrol
-    bind = $mainMod,         P, exec, bitwarden
-    bind = $mainMod,         N, exec, swaync-client -t -sw
-    bind = $mainMod,         C, exec, hyprpicker -a
+    # Full Omarchy layout, ported. Menus/notifications/toggles go through the
+    # omarchy-* scripts (modules/omarchy/), tiling through native dispatchers.
 
-    # Window management
-    bind = $mainMod,         F, fullscreen
-    bind = $mainMod,         V, togglefloating
-    bind = $mainMod SHIFT,   T, togglesplit
+    # -------- Applications (omarchy bindings/applications.lua) --------
+    bind = $mainMod,           RETURN, exec, $terminal
+    bind = $mainMod SHIFT,     RETURN, exec, chromium
+    bind = $mainMod SHIFT,     B, exec, chromium
+    bind = $mainMod SHIFT ALT, B, exec, chromium --incognito
+    bind = $mainMod SHIFT,     F, exec, $fileManager
+    bind = $mainMod SHIFT,     N, exec, kitty -e nvim
+    bind = $mainMod SHIFT,     D, exec, kitty --class=lazydocker -e lazydocker
+    bind = $mainMod SHIFT,     G, exec, ${discordBin}
+    bind = $mainMod SHIFT,     O, exec, obsidian
+    bind = $mainMod SHIFT,     slash, exec, bitwarden
+    bind = $mainMod CTRL,      T, exec, kitty -e btop
+    bind = $mainMod CTRL,      A, exec, pavucontrol
+    bind = $mainMod CTRL,      B, exec, blueman-manager
+    bind = $mainMod CTRL,      W, exec, networkmanager_dmenu
 
-    # Focus: vim h/j/k/l + arrow fallback.
-    bind = $mainMod,         h, movefocus, l
-    bind = $mainMod,         l, movefocus, r
-    bind = $mainMod,         k, movefocus, u
-    bind = $mainMod,         j, movefocus, d
-    bind = $mainMod,      left, movefocus, l
-    bind = $mainMod,     right, movefocus, r
-    bind = $mainMod,        up, movefocus, u
-    bind = $mainMod,      down, movefocus, d
+    # -------- Menus (omarchy-menu tree, rofi-based) --------
+    bind = $mainMod,           SPACE, exec, omarchy-menu
+    bind = $mainMod ALT,       SPACE, exec, $menu
+    bind = $mainMod,           ESCAPE, exec, omarchy-menu system
+    bind = $mainMod CTRL,      C, exec, omarchy-menu capture
+    bind = $mainMod CTRL,      O, exec, omarchy-menu toggle
+    bind = $mainMod CTRL,      E, exec, rofimoji --action copy
+    bind = $mainMod CTRL,      SPACE, exec, omarchy-wallpaper
+    bind = $mainMod,           K, exec, omarchy-menu-keybindings
 
-    # Move (within current monitor; cross-monitor "throw" is implicit via
-    # the pinned workspace layout — SHIFT+N moves the window to ws N).
-    bind = $mainMod SHIFT,   h, movewindow, l
-    bind = $mainMod SHIFT,   l, movewindow, r
-    bind = $mainMod SHIFT,   k, movewindow, u
-    bind = $mainMod SHIFT,   j, movewindow, d
-    bind = $mainMod SHIFT, left, movewindow, l
-    bind = $mainMod SHIFT, right, movewindow, r
-    bind = $mainMod SHIFT, up,    movewindow, u
-    bind = $mainMod SHIFT, down,  movewindow, d
+    # -------- Notifications (swaync) --------
+    bind = $mainMod,           comma, exec, omarchy-notification dismiss
+    bind = $mainMod SHIFT,     comma, exec, omarchy-notification dismiss-all
+    bind = $mainMod CTRL,      comma, exec, omarchy-toggle silence
+    bind = $mainMod SHIFT ALT, comma, exec, omarchy-notification panel
 
-    # Workspaces 1-10 (0 = ws 10). Workspaces are globally numbered and
-    # pinned to specific monitors via the pin script in autostart.
-    bind = $mainMod,         1, workspace, 1
-    bind = $mainMod,         2, workspace, 2
-    bind = $mainMod,         3, workspace, 3
-    bind = $mainMod,         4, workspace, 4
-    bind = $mainMod,         5, workspace, 5
-    bind = $mainMod,         6, workspace, 6
-    bind = $mainMod,         7, workspace, 7
-    bind = $mainMod,         8, workspace, 8
-    bind = $mainMod,         9, workspace, 9
-    bind = $mainMod,         0, workspace, 10
-    bind = $mainMod SHIFT,   1, movetoworkspace, 1
-    bind = $mainMod SHIFT,   2, movetoworkspace, 2
-    bind = $mainMod SHIFT,   3, movetoworkspace, 3
-    bind = $mainMod SHIFT,   4, movetoworkspace, 4
-    bind = $mainMod SHIFT,   5, movetoworkspace, 5
-    bind = $mainMod SHIFT,   6, movetoworkspace, 6
-    bind = $mainMod SHIFT,   7, movetoworkspace, 7
-    bind = $mainMod SHIFT,   8, movetoworkspace, 8
-    bind = $mainMod SHIFT,   9, movetoworkspace, 9
-    bind = $mainMod SHIFT,   0, movetoworkspace, 10
+    # -------- Toggles --------
+    bind = $mainMod CTRL,      I, exec, omarchy-toggle idle
+    bind = $mainMod CTRL,      N, exec, omarchy-toggle nightlight
+    bind = $mainMod SHIFT,     SPACE, exec, omarchy-toggle bar
+    bind = $mainMod,           BACKSPACE, exec, omarchy-toggle transparency
+    bind = $mainMod SHIFT,     BACKSPACE, exec, omarchy-toggle gaps
 
-    # Scroll through workspaces with $mainMod + scroll wheel.
-    bind = $mainMod, mouse_down, workspace, e+1
-    bind = $mainMod, mouse_up,   workspace, e-1
+    # -------- Info notifications --------
+    bind = $mainMod CTRL ALT,  T, exec, omarchy-notification time
+    bind = $mainMod CTRL ALT,  B, exec, omarchy-notification battery
+    bind = $mainMod CTRL ALT,  W, exec, omarchy-notification weather
 
-    # Drag / resize with $mainMod + LMB/RMB.
+    # -------- Window management (omarchy bindings/tiling.lua) --------
+    bind = $mainMod,           W, killactive
+    bind = $mainMod,           Q, killactive
+    bind = $mainMod,           J, togglesplit
+    bind = $mainMod,           P, pseudo
+    bind = $mainMod,           T, togglefloating
+    bind = $mainMod,           F, fullscreen
+    bind = $mainMod ALT,       F, fullscreen, 1
+    bind = $mainMod,           O, exec, hyprctl --batch "dispatch togglefloating ; dispatch pin"
+    bind = $mainMod,           L, exec, omarchy-toggle layout
+
+    # Focus / swap with arrows.
+    bind = $mainMod,        left, movefocus, l
+    bind = $mainMod,       right, movefocus, r
+    bind = $mainMod,          up, movefocus, u
+    bind = $mainMod,        down, movefocus, d
+    bind = $mainMod SHIFT,  left, swapwindow, l
+    bind = $mainMod SHIFT, right, swapwindow, r
+    bind = $mainMod SHIFT,    up, swapwindow, u
+    bind = $mainMod SHIFT,  down, swapwindow, d
+
+    # Workspaces 1-10 (0 = ws 10), globally numbered, pinned to monitors by
+    # the pin script in autostart. SHIFT moves + follows, SHIFT+ALT moves
+    # silently.
+    bind = $mainMod,           1, workspace, 1
+    bind = $mainMod,           2, workspace, 2
+    bind = $mainMod,           3, workspace, 3
+    bind = $mainMod,           4, workspace, 4
+    bind = $mainMod,           5, workspace, 5
+    bind = $mainMod,           6, workspace, 6
+    bind = $mainMod,           7, workspace, 7
+    bind = $mainMod,           8, workspace, 8
+    bind = $mainMod,           9, workspace, 9
+    bind = $mainMod,           0, workspace, 10
+    bind = $mainMod SHIFT,     1, movetoworkspace, 1
+    bind = $mainMod SHIFT,     2, movetoworkspace, 2
+    bind = $mainMod SHIFT,     3, movetoworkspace, 3
+    bind = $mainMod SHIFT,     4, movetoworkspace, 4
+    bind = $mainMod SHIFT,     5, movetoworkspace, 5
+    bind = $mainMod SHIFT,     6, movetoworkspace, 6
+    bind = $mainMod SHIFT,     7, movetoworkspace, 7
+    bind = $mainMod SHIFT,     8, movetoworkspace, 8
+    bind = $mainMod SHIFT,     9, movetoworkspace, 9
+    bind = $mainMod SHIFT,     0, movetoworkspace, 10
+    bind = $mainMod SHIFT ALT, 1, movetoworkspacesilent, 1
+    bind = $mainMod SHIFT ALT, 2, movetoworkspacesilent, 2
+    bind = $mainMod SHIFT ALT, 3, movetoworkspacesilent, 3
+    bind = $mainMod SHIFT ALT, 4, movetoworkspacesilent, 4
+    bind = $mainMod SHIFT ALT, 5, movetoworkspacesilent, 5
+    bind = $mainMod SHIFT ALT, 6, movetoworkspacesilent, 6
+    bind = $mainMod SHIFT ALT, 7, movetoworkspacesilent, 7
+    bind = $mainMod SHIFT ALT, 8, movetoworkspacesilent, 8
+    bind = $mainMod SHIFT ALT, 9, movetoworkspacesilent, 9
+    bind = $mainMod SHIFT ALT, 0, movetoworkspacesilent, 10
+
+    # Workspace cycling + former workspace.
+    bind = $mainMod,       TAB, workspace, e+1
+    bind = $mainMod SHIFT, TAB, workspace, e-1
+    bind = $mainMod CTRL,  TAB, workspace, previous
+
+    # Window cycling (ALT+TAB) — both binds on one key fire together.
+    bind = ALT,       TAB, cyclenext
+    bind = ALT,       TAB, bringactivetotop
+    bind = ALT SHIFT, TAB, cyclenext, prev
+    bind = ALT SHIFT, TAB, bringactivetotop
+
+    # Scratchpad.
+    bind = $mainMod,       S, togglespecialworkspace, scratchpad
+    bind = $mainMod ALT,   S, movetoworkspacesilent, special:scratchpad
+    bind = $mainMod,       grave, togglespecialworkspace, scratchpad
+    bind = $mainMod SHIFT, grave, movetoworkspacesilent, special:scratchpad
+
+    # Throw the current workspace at another monitor.
+    bind = $mainMod SHIFT ALT,  left, movecurrentworkspacetomonitor, l
+    bind = $mainMod SHIFT ALT, right, movecurrentworkspacetomonitor, r
+    bind = $mainMod SHIFT ALT,    up, movecurrentworkspacetomonitor, u
+    bind = $mainMod SHIFT ALT,  down, movecurrentworkspacetomonitor, d
+    bind = CTRL ALT,       TAB, focusmonitor, +1
+    bind = CTRL ALT SHIFT, TAB, focusmonitor, -1
+
+    # Resize: -/= a step, ALT a little, CTRL a lot (binde = repeats).
+    binde = $mainMod,            minus, resizeactive, -100 0
+    binde = $mainMod,            equal, resizeactive, 100 0
+    binde = $mainMod SHIFT,      minus, resizeactive, 0 -100
+    binde = $mainMod SHIFT,      equal, resizeactive, 0 100
+    binde = $mainMod ALT,        minus, resizeactive, -25 0
+    binde = $mainMod ALT,        equal, resizeactive, 25 0
+    binde = $mainMod SHIFT ALT,  minus, resizeactive, 0 -25
+    binde = $mainMod SHIFT ALT,  equal, resizeactive, 0 25
+    binde = $mainMod CTRL,       minus, resizeactive, -300 0
+    binde = $mainMod CTRL,       equal, resizeactive, 300 0
+    binde = $mainMod CTRL SHIFT, minus, resizeactive, 0 -300
+    binde = $mainMod CTRL SHIFT, equal, resizeactive, 0 300
+
+    # Window groups.
+    bind = $mainMod,           G, togglegroup
+    bind = $mainMod ALT,       G, moveoutofgroup
+    bind = $mainMod ALT,    left, moveintogroup, l
+    bind = $mainMod ALT,   right, moveintogroup, r
+    bind = $mainMod ALT,      up, moveintogroup, u
+    bind = $mainMod ALT,    down, moveintogroup, d
+    bind = $mainMod ALT,       TAB, changegroupactive, f
+    bind = $mainMod ALT SHIFT, TAB, changegroupactive, b
+    bind = $mainMod CTRL,   left, changegroupactive, b
+    bind = $mainMod CTRL,  right, changegroupactive, f
+
+    # Mouse: scroll workspaces, drag/resize, cycle group windows.
+    bind  = $mainMod,     mouse_down, workspace, e+1
+    bind  = $mainMod,     mouse_up,   workspace, e-1
+    bind  = $mainMod ALT, mouse_down, changegroupactive, f
+    bind  = $mainMod ALT, mouse_up,   changegroupactive, b
     bindm = $mainMod, mouse:272, movewindow
     bindm = $mainMod, mouse:273, resizewindow
 
-    # Screenshots: hyprshot --raw -> satty -> ~/Pictures + clipboard + notification.
-    bind = $mainMod,         S, exec, ${screenshotScript}/bin/screenshot region
-    bind = $mainMod SHIFT,   S, exec, ${screenshotScript}/bin/screenshot output
-    bind = $mainMod CTRL,    S, exec, ${screenshotScript}/bin/screenshot window
+    # -------- Universal clipboard (omarchy bindings/clipboard.lua) --------
+    # SUPER+C/V/X work everywhere; kitty gets CTRL+SHIFT translated.
+    bind = $mainMod,      C, exec, omarchy-clipboard copy
+    bind = $mainMod,      V, exec, omarchy-clipboard paste
+    bind = $mainMod,      X, exec, omarchy-clipboard cut
+    bind = $mainMod CTRL, V, exec, sh -c 'cliphist list | rofi -dmenu | cliphist decode | wl-copy'
 
-    # Screen recording toggle (R is rofi, so this is on SHIFT+R).
-    bind = $mainMod SHIFT,   R, exec, sh -c "pgrep wf-recorder >/dev/null && pkill -SIGINT wf-recorder || (mkdir -p $HOME/Videos && wf-recorder -f $HOME/Videos/$(date +%F-%H%M%S).mp4)"
+    # -------- Capture (PRINT may be absent on the Mac keyboard; the
+    # SUPER+CTRL+C capture menu covers everything there) --------
+    bind = ,               PRINT, exec, omarchy-capture screenshot region
+    bind = SHIFT,          PRINT, exec, omarchy-capture screenshot window
+    bind = CTRL,           PRINT, exec, omarchy-capture screenshot output
+    bind = ALT,            PRINT, exec, omarchy-capture record
+    bind = $mainMod,       PRINT, exec, omarchy-capture color
+    bind = $mainMod CTRL,  PRINT, exec, omarchy-capture ocr
 
-    # Clipboard history (cliphist watcher started by the HM service).
-    bind = $mainMod SHIFT,   V, exec, sh -c 'cliphist list | rofi -dmenu | cliphist decode | wl-copy'
+    # -------- Zoom / lock --------
+    bind = $mainMod CTRL,     Z, exec, omarchy-zoom in
+    bind = $mainMod CTRL ALT, Z, exec, omarchy-zoom reset
+    bind = $mainMod CTRL,     L, exec, hyprlock
 
-    # Manual screen lock.
-    bind = $mainMod CTRL,    L, exec, hyprlock
-
-    # Hardware media keys (l = locked, e = repeat).
-    bindle = , XF86AudioRaiseVolume,  exec, wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+
-    bindle = , XF86AudioLowerVolume,  exec, wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-
-    bindl  = , XF86AudioMute,         exec, wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
-    bindl  = , XF86AudioMicMute,      exec, wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle
-    bindle = , XF86MonBrightnessUp,   exec, brightnessctl -e4 -n2 set 5%+
-    bindle = , XF86MonBrightnessDown, exec, brightnessctl -e4 -n2 set 5%-
-    bindl  = , XF86AudioNext,         exec, playerctl next
-    bindl  = , XF86AudioPause,        exec, playerctl play-pause
-    bindl  = , XF86AudioPlay,         exec, playerctl play-pause
-    bindl  = , XF86AudioPrev,         exec, playerctl previous
+    # Hardware media keys (l = locked, e = repeat); ALT variants are precise.
+    bindle = ,    XF86AudioRaiseVolume,  exec, wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+
+    bindle = ,    XF86AudioLowerVolume,  exec, wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-
+    bindle = ALT, XF86AudioRaiseVolume,  exec, wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 1%+
+    bindle = ALT, XF86AudioLowerVolume,  exec, wpctl set-volume @DEFAULT_AUDIO_SINK@ 1%-
+    bindl  = ,    XF86AudioMute,         exec, wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
+    bindl  = ,    XF86AudioMicMute,      exec, wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle
+    bindle = ,    XF86MonBrightnessUp,   exec, brightnessctl -e4 -n2 set 5%+
+    bindle = ,    XF86MonBrightnessDown, exec, brightnessctl -e4 -n2 set 5%-
+    bindle = ALT, XF86MonBrightnessUp,   exec, brightnessctl -e4 -n2 set 1%+
+    bindle = ALT, XF86MonBrightnessDown, exec, brightnessctl -e4 -n2 set 1%-
+    bindl  = ,    XF86AudioNext,         exec, playerctl next
+    bindl  = ,    XF86AudioPause,        exec, playerctl play-pause
+    bindl  = ,    XF86AudioPlay,         exec, playerctl play-pause
+    bindl  = ,    XF86AudioPrev,         exec, playerctl previous
 
     ######################################################## WINDOW RULES
     windowrulev2 = suppressevent maximize, class:.*
     windowrulev2 = nofocus, class:^$,title:^$,xwayland:1,floating:1,fullscreen:0,pinned:0
+    # Floating terminal the Omarchy menu launches things in.
+    windowrulev2 = float, class:^(Omarchy-float)$
+    windowrulev2 = size 60% 70%, class:^(Omarchy-float)$
+    windowrulev2 = center, class:^(Omarchy-float)$
   '';
 
   # ---------------------------- .lua (Hyprland 0.55+, 26.05) ---------------
@@ -559,105 +666,170 @@ let
     hl.device({ name = "epic-mouse-v1", sensitivity = -0.5 })
 
     ------------------------------------------------------------------ KEYBINDINGS
-    -- Adopted from the omarchy hyprland setup, but everything goes through
-    -- Hyprland's native Lua dispatchers (hl.dsp.*) — Hyprland 0.55's
-    -- `hyprctl dispatch` evaluates its argument as Lua (`hl.dispatch(<arg>)`),
-    -- so shelling out with `hl.dsp.exec_cmd("hyprctl dispatch movewindow l")`
-    -- becomes `return hl.dispatch(movewindow l)` and silently errors out.
+    -- Full Omarchy layout on Hyprland's native Lua dispatchers (hl.dsp.*).
+    -- Menus / notifications / toggles route through the omarchy-* scripts
+    -- from modules/omarchy/, same as the .conf dialect above.
     local mainMod = "${mainMod}"
 
-    -- Programs (single-letter mnemonics: Q=quit, T=terminal, R=rofi,
-    -- B=browser, D=discord, A=audio, P=password, N=notifications,
-    -- C=color picker, S=screenshot, F=fullscreen, V=float; SHIFT+F=files).
-    hl.bind(mainMod .. " + Q",          hl.dsp.window.close())                          -- Quit focused window
-    hl.bind(mainMod .. " + SHIFT + Q",  hl.dsp.exit())                                  -- Quit Hyprland session
-    hl.bind(mainMod .. " + T",          hl.dsp.exec_cmd(terminal))                      -- Terminal
-    hl.bind(mainMod .. " + R",          hl.dsp.exec_cmd(menu))                          -- Rofi launcher
-    hl.bind(mainMod .. " + SHIFT + F",  hl.dsp.exec_cmd(fileManager))                   -- File manager
-    hl.bind(mainMod .. " + B",          hl.dsp.exec_cmd("chromium"))                    -- Browser
-    hl.bind(mainMod .. " + D",          hl.dsp.exec_cmd("${discordBin}"))               -- Discord (nixcord)
-    hl.bind(mainMod .. " + A",          hl.dsp.exec_cmd("pavucontrol"))                 -- Audio mixer
-    hl.bind(mainMod .. " + P",          hl.dsp.exec_cmd("bitwarden"))                   -- Password manager
-    hl.bind(mainMod .. " + N",          hl.dsp.exec_cmd("swaync-client -t -sw"))        -- Notification center toggle
-    hl.bind(mainMod .. " + C",          hl.dsp.exec_cmd("hyprpicker -a"))               -- Color picker
-
-    -- Window management
-    hl.bind(mainMod .. " + F",          hl.dsp.window.fullscreen())                     -- Fullscreen
-    hl.bind(mainMod .. " + V",          hl.dsp.window.float({ action = "toggle" }))     -- toggle float
-    hl.bind(mainMod .. " + SHIFT + T",  hl.dsp.layout("togglesplit"))                   -- swap dwindle split axis
-
-    -- Focus: vim-motion (h/j/k/l) plus arrow-key fallback.
-    local function focus(key, dir)
-        hl.bind(mainMod .. " + " .. key, hl.dsp.focus({ direction = dir }))
+    local function bind(combo, desc, action, opts)
+        opts = opts or {}
+        opts.description = desc
+        hl.bind(combo, action, opts)
     end
-    focus("h", "l"); focus("l", "r"); focus("k", "u"); focus("j", "d")
-    focus("left", "l"); focus("right", "r"); focus("up", "u"); focus("down", "d")
+    local function run(cmd) return hl.dsp.exec_cmd(cmd) end
 
-    -- Move: mainMod + SHIFT + dir slides the focused window inside the current
-    -- monitor. Cross-monitor "throw" is implicit via the pinned workspace
-    -- layout — mainMod+SHIFT+N below moves the window to ws N, which lives on
-    -- whichever monitor owns N.
-    local function mv(key, dir)
-        hl.bind(mainMod .. " + SHIFT + " .. key, hl.dsp.window.move({ direction = dir }))
+    -- Applications (omarchy bindings/applications.lua)
+    bind(mainMod .. " + RETURN",              "Terminal",           run(terminal))
+    bind(mainMod .. " + SHIFT + RETURN",      "Browser",            run("chromium"))
+    bind(mainMod .. " + SHIFT + B",           "Browser",            run("chromium"))
+    bind(mainMod .. " + SHIFT + ALT + B",     "Browser (private)",  run("chromium --incognito"))
+    bind(mainMod .. " + SHIFT + F",           "File manager",       run(fileManager))
+    bind(mainMod .. " + SHIFT + N",           "Editor",             run("kitty -e nvim"))
+    bind(mainMod .. " + SHIFT + D",           "Docker (lazydocker)",run("kitty --class=lazydocker -e lazydocker"))
+    bind(mainMod .. " + SHIFT + G",           "Discord",            run("${discordBin}"))
+    bind(mainMod .. " + SHIFT + O",           "Obsidian",           run("obsidian"))
+    bind(mainMod .. " + SHIFT + SLASH",       "Passwords",          run("bitwarden"))
+    bind(mainMod .. " + CTRL + T",            "Activity (btop)",    run("kitty -e btop"))
+    bind(mainMod .. " + CTRL + A",            "Audio mixer",        run("pavucontrol"))
+    bind(mainMod .. " + CTRL + B",            "Bluetooth",          run("blueman-manager"))
+    bind(mainMod .. " + CTRL + W",            "Wi-Fi",              run("networkmanager_dmenu"))
+
+    -- Menus (omarchy-menu tree, rofi-based)
+    bind(mainMod .. " + SPACE",               "Omarchy menu",       run("omarchy-menu"))
+    bind(mainMod .. " + ALT + SPACE",         "Apps menu",          run(menu))
+    bind(mainMod .. " + ESCAPE",              "System menu",        run("omarchy-menu system"))
+    bind(mainMod .. " + CTRL + C",            "Capture menu",       run("omarchy-menu capture"))
+    bind(mainMod .. " + CTRL + O",            "Toggle menu",        run("omarchy-menu toggle"))
+    bind(mainMod .. " + CTRL + E",            "Emoji picker",       run("rofimoji --action copy"))
+    bind(mainMod .. " + CTRL + SPACE",        "Background switcher",run("omarchy-wallpaper"))
+    bind(mainMod .. " + K",                   "Keybindings",        run("omarchy-menu-keybindings"))
+
+    -- Notifications (swaync)
+    bind(mainMod .. " + comma",               "Dismiss last notification", run("omarchy-notification dismiss"))
+    bind(mainMod .. " + SHIFT + comma",       "Dismiss all notifications", run("omarchy-notification dismiss-all"))
+    bind(mainMod .. " + CTRL + comma",        "Silence notifications",     run("omarchy-toggle silence"))
+    bind(mainMod .. " + SHIFT + ALT + comma", "Notification history",      run("omarchy-notification panel"))
+
+    -- Toggles
+    bind(mainMod .. " + CTRL + I",            "Toggle locking on idle", run("omarchy-toggle idle"))
+    bind(mainMod .. " + CTRL + N",            "Toggle nightlight",      run("omarchy-toggle nightlight"))
+    bind(mainMod .. " + SHIFT + SPACE",       "Toggle bar",             run("omarchy-toggle bar"))
+    bind(mainMod .. " + BACKSPACE",           "Toggle transparency",    run("omarchy-toggle transparency"))
+    bind(mainMod .. " + SHIFT + BACKSPACE",   "Toggle window gaps",     run("omarchy-toggle gaps"))
+
+    -- Info notifications
+    bind(mainMod .. " + CTRL + ALT + T",      "Show time",    run("omarchy-notification time"))
+    bind(mainMod .. " + CTRL + ALT + B",      "Show battery", run("omarchy-notification battery"))
+    bind(mainMod .. " + CTRL + ALT + W",      "Show weather", run("omarchy-notification weather"))
+
+    -- Window management (omarchy bindings/tiling.lua)
+    bind(mainMod .. " + W",                   "Close window",        hl.dsp.window.close())
+    bind(mainMod .. " + Q",                   "Close window",        hl.dsp.window.close())
+    bind(mainMod .. " + J",                   "Toggle window split", hl.dsp.layout("togglesplit"))
+    bind(mainMod .. " + P",                   "Pseudo window",       hl.dsp.window.pseudo())
+    bind(mainMod .. " + T",                   "Toggle floating",     hl.dsp.window.float({ action = "toggle" }))
+    bind(mainMod .. " + F",                   "Full screen",         hl.dsp.window.fullscreen({ mode = "fullscreen" }))
+    bind(mainMod .. " + ALT + F",             "Full width",          hl.dsp.window.fullscreen({ mode = "maximized" }))
+    bind(mainMod .. " + O",                   "Pop window out (float & pin)", run('hyprctl --batch "dispatch togglefloating ; dispatch pin"'))
+    bind(mainMod .. " + L",                   "Toggle workspace layout",      run("omarchy-toggle layout"))
+
+    -- Focus / swap with arrows.
+    for key, dir in pairs({ LEFT = "l", RIGHT = "r", UP = "u", DOWN = "d" }) do
+        bind(mainMod .. " + " .. key,            "Focus " .. dir, hl.dsp.focus({ direction = dir }))
+        bind(mainMod .. " + SHIFT + " .. key,    "Swap "  .. dir, hl.dsp.window.swap({ direction = dir }))
+        bind(mainMod .. " + SHIFT + ALT + " .. key, "Move workspace to monitor " .. dir, hl.dsp.workspace.move({ monitor = dir }))
+        bind(mainMod .. " + ALT + " .. key,      "Move window into group " .. dir, hl.dsp.window.move({ into_group = dir }))
     end
-    mv("h", "l"); mv("l", "r"); mv("k", "u"); mv("j", "d")
-    mv("left", "l"); mv("right", "r"); mv("up", "u"); mv("down", "d")
 
-    -- Workspaces 1-10 (0 = ws 10). Workspaces are globally numbered and pinned
-    -- to specific monitors via hl.workspace_rule in monitors.lua (per-host).
-    -- mainMod+N focuses ws N — focus jumps to whichever monitor owns it.
+    -- Workspaces 1-10 (0 = ws 10), globally numbered, pinned to monitors by
+    -- autoPinWorkspaces above. SHIFT moves + follows, SHIFT+ALT moves silently.
     for i = 1, 10 do
         local key = i % 10
-        hl.bind(mainMod .. " + " .. key,         hl.dsp.focus({ workspace = i }))
-        hl.bind(mainMod .. " + SHIFT + " .. key, hl.dsp.window.move({ workspace = i }))
+        bind(mainMod .. " + " .. key,                  "Workspace " .. i,               hl.dsp.focus({ workspace = tostring(i) }))
+        bind(mainMod .. " + SHIFT + " .. key,          "Move window to workspace " .. i, hl.dsp.window.move({ workspace = tostring(i) }))
+        bind(mainMod .. " + SHIFT + ALT + " .. key,    "Move window silently to workspace " .. i, hl.dsp.window.move({ workspace = tostring(i), follow = false }))
     end
 
-    -- Scroll through workspaces with mainMod + scroll wheel.
-    hl.bind(mainMod .. " + mouse_down", hl.dsp.focus({ workspace = "e+1" }))
-    hl.bind(mainMod .. " + mouse_up",   hl.dsp.focus({ workspace = "e-1" }))
+    -- Workspace cycling + former workspace.
+    bind(mainMod .. " + TAB",                 "Next workspace",     hl.dsp.focus({ workspace = "e+1" }))
+    bind(mainMod .. " + SHIFT + TAB",         "Previous workspace", hl.dsp.focus({ workspace = "e-1" }))
+    bind(mainMod .. " + CTRL + TAB",          "Former workspace",   hl.dsp.focus({ workspace = "previous" }))
 
-    -- Drag / resize with mainMod + LMB/RMB.
+    -- Window cycling (ALT+TAB).
+    bind("ALT + TAB",                         "Next window",        hl.dsp.window.cycle_next())
+    bind("ALT + TAB",                         "Reveal window",      hl.dsp.window.bring_to_top())
+    bind("ALT + SHIFT + TAB",                 "Previous window",    hl.dsp.window.cycle_next({ next = false }))
+    bind("ALT + SHIFT + TAB",                 "Reveal window",      hl.dsp.window.bring_to_top())
+
+    -- Scratchpad.
+    bind(mainMod .. " + S",                   "Toggle scratchpad",  hl.dsp.workspace.toggle_special("scratchpad"))
+    bind(mainMod .. " + ALT + S",             "Move window to scratchpad", hl.dsp.window.move({ workspace = "special:scratchpad", follow = false }))
+    bind(mainMod .. " + grave",               "Toggle scratchpad",  hl.dsp.workspace.toggle_special("scratchpad"))
+    bind(mainMod .. " + SHIFT + grave",       "Move window to scratchpad", hl.dsp.window.move({ workspace = "special:scratchpad", follow = false }))
+
+    -- Monitor focus.
+    bind("CTRL + ALT + TAB",                  "Next monitor",       hl.dsp.focus({ monitor = "+1" }))
+    bind("CTRL + ALT + SHIFT + TAB",          "Previous monitor",   hl.dsp.focus({ monitor = "-1" }))
+
+    -- Resize: -/= a step, ALT a little, CTRL a lot (code:20 = minus, 21 = equal).
+    for mods, step in pairs({ [""] = 100, ["ALT + "] = 25, ["CTRL + "] = 300 }) do
+        bind(mainMod .. " + " .. mods .. "code:20",            "Shrink window",  hl.dsp.window.resize({ x = -step, y = 0, relative = true }), { repeating = true })
+        bind(mainMod .. " + " .. mods .. "code:21",            "Expand window",  hl.dsp.window.resize({ x = step,  y = 0, relative = true }), { repeating = true })
+        bind(mainMod .. " + SHIFT + " .. mods .. "code:20",    "Shrink window vertically", hl.dsp.window.resize({ x = 0, y = -step, relative = true }), { repeating = true })
+        bind(mainMod .. " + SHIFT + " .. mods .. "code:21",    "Expand window vertically", hl.dsp.window.resize({ x = 0, y = step,  relative = true }), { repeating = true })
+    end
+
+    -- Window groups.
+    bind(mainMod .. " + G",                   "Toggle window grouping", hl.dsp.group.toggle())
+    bind(mainMod .. " + ALT + G",             "Move window out of group", hl.dsp.window.move({ out_of_group = true }))
+    bind(mainMod .. " + ALT + TAB",           "Next window in group",     hl.dsp.group.next())
+    bind(mainMod .. " + ALT + SHIFT + TAB",   "Previous window in group", hl.dsp.group.prev())
+    bind(mainMod .. " + CTRL + LEFT",         "Previous window in group", hl.dsp.group.prev())
+    bind(mainMod .. " + CTRL + RIGHT",        "Next window in group",     hl.dsp.group.next())
+
+    -- Mouse: scroll workspaces, drag/resize, cycle group windows.
+    bind(mainMod .. " + mouse_down",          "Next workspace",     hl.dsp.focus({ workspace = "e+1" }))
+    bind(mainMod .. " + mouse_up",            "Previous workspace", hl.dsp.focus({ workspace = "e-1" }))
+    bind(mainMod .. " + ALT + mouse_down",    "Next window in group",     hl.dsp.group.next())
+    bind(mainMod .. " + ALT + mouse_up",      "Previous window in group", hl.dsp.group.prev())
     hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(),   { mouse = true })
     hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 
-    -- Screenshots: hyprshot --raw -> satty (annotate UI) -> ~/Pictures/
-    -- and clipboard, then a click-to-open notification. Hit Enter inside
-    -- satty to save without annotating.
-    --   mainMod+S            region
-    --   mainMod+SHIFT+S      whole monitor
-    --   mainMod+CTRL+S       focused window
-    hl.bind(mainMod .. " + S",            hl.dsp.exec_cmd("${screenshotScript}/bin/screenshot region"))
-    hl.bind(mainMod .. " + SHIFT + S",    hl.dsp.exec_cmd("${screenshotScript}/bin/screenshot output"))
-    hl.bind(mainMod .. " + CTRL + S",     hl.dsp.exec_cmd("${screenshotScript}/bin/screenshot window"))
+    -- Universal clipboard (omarchy bindings/clipboard.lua): SUPER+C/V/X work
+    -- everywhere; kitty gets CTRL+SHIFT translated by the script.
+    bind(mainMod .. " + C",                   "Universal copy",     run("omarchy-clipboard copy"))
+    bind(mainMod .. " + V",                   "Universal paste",    run("omarchy-clipboard paste"))
+    bind(mainMod .. " + X",                   "Universal cut",      run("omarchy-clipboard cut"))
+    bind(mainMod .. " + CTRL + V",            "Clipboard history",  run("sh -c 'cliphist list | rofi -dmenu | cliphist decode | wl-copy'"))
 
-    -- Screen recording toggle (R is rofi, so this lives on SHIFT+R). First
-    -- press starts wf-recorder writing to ~/Videos/<timestamp>.mp4; second
-    -- press sends SIGINT so wf-recorder finalises the file cleanly.
-    hl.bind(mainMod .. " + SHIFT + R", hl.dsp.exec_cmd(
-        'sh -c "pgrep wf-recorder >/dev/null && pkill -SIGINT wf-recorder || ' ..
-        '(mkdir -p $HOME/Videos && wf-recorder -f $HOME/Videos/$(date +%F-%H%M%S).mp4)"'
-    ))
+    -- Capture.
+    bind("PRINT",                             "Screenshot region",  run("omarchy-capture screenshot region"))
+    bind("SHIFT + PRINT",                     "Screenshot window",  run("omarchy-capture screenshot window"))
+    bind("CTRL + PRINT",                      "Screenshot screen",  run("omarchy-capture screenshot output"))
+    bind("ALT + PRINT",                       "Screenrecord",       run("omarchy-capture record"))
+    bind(mainMod .. " + PRINT",               "Color picker",       run("omarchy-capture color"))
+    bind(mainMod .. " + CTRL + PRINT",        "Extract text (OCR)", run("omarchy-capture ocr"))
 
-    -- Clipboard history. cliphist's wl-paste watcher is started by the
-    -- home-manager service; this just fans the list through rofi.
-    hl.bind(mainMod .. " + SHIFT + V", hl.dsp.exec_cmd(
-        "sh -c 'cliphist list | rofi -dmenu | cliphist decode | wl-copy'"
-    ))
+    -- Zoom / lock.
+    bind(mainMod .. " + CTRL + Z",            "Zoom in",            run("omarchy-zoom in"))
+    bind(mainMod .. " + CTRL + ALT + Z",      "Reset zoom",         run("omarchy-zoom reset"))
+    bind(mainMod .. " + CTRL + L",            "Lock screen",        run("hyprlock"))
 
-    -- Manual screen lock. hypridle also calls hyprlock on the 10-minute
-    -- idle listener; this is the explicit "I'm leaving" hotkey.
-    hl.bind(mainMod .. " + CTRL + L", hl.dsp.exec_cmd("hyprlock"))
-
-    hl.bind("XF86AudioRaiseVolume", hl.dsp.exec_cmd("wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+"), { locked = true, repeating = true })
-    hl.bind("XF86AudioLowerVolume", hl.dsp.exec_cmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"),      { locked = true, repeating = true })
-    hl.bind("XF86AudioMute",        hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"),     { locked = true })
-    hl.bind("XF86AudioMicMute",     hl.dsp.exec_cmd("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"),   { locked = true })
-    hl.bind("XF86MonBrightnessUp",  hl.dsp.exec_cmd("brightnessctl -e4 -n2 set 5%+"),                  { locked = true, repeating = true })
-    hl.bind("XF86MonBrightnessDown",hl.dsp.exec_cmd("brightnessctl -e4 -n2 set 5%-"),                  { locked = true, repeating = true })
-    hl.bind("XF86AudioNext",  hl.dsp.exec_cmd("playerctl next"),       { locked = true })
-    hl.bind("XF86AudioPause", hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
-    hl.bind("XF86AudioPlay",  hl.dsp.exec_cmd("playerctl play-pause"), { locked = true })
-    hl.bind("XF86AudioPrev",  hl.dsp.exec_cmd("playerctl previous"),   { locked = true })
+    -- Hardware media keys (locked = works on lock screen); ALT = precise.
+    hl.bind("XF86AudioRaiseVolume",        run("wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+"), { locked = true, repeating = true })
+    hl.bind("XF86AudioLowerVolume",        run("wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"),      { locked = true, repeating = true })
+    hl.bind("ALT + XF86AudioRaiseVolume",  run("wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 1%+"), { locked = true, repeating = true })
+    hl.bind("ALT + XF86AudioLowerVolume",  run("wpctl set-volume @DEFAULT_AUDIO_SINK@ 1%-"),      { locked = true, repeating = true })
+    hl.bind("XF86AudioMute",               run("wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"),     { locked = true })
+    hl.bind("XF86AudioMicMute",            run("wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"),   { locked = true })
+    hl.bind("XF86MonBrightnessUp",         run("brightnessctl -e4 -n2 set 5%+"),                  { locked = true, repeating = true })
+    hl.bind("XF86MonBrightnessDown",       run("brightnessctl -e4 -n2 set 5%-"),                  { locked = true, repeating = true })
+    hl.bind("ALT + XF86MonBrightnessUp",   run("brightnessctl -e4 -n2 set 1%+"),                  { locked = true, repeating = true })
+    hl.bind("ALT + XF86MonBrightnessDown", run("brightnessctl -e4 -n2 set 1%-"),                  { locked = true, repeating = true })
+    hl.bind("XF86AudioNext",  run("playerctl next"),       { locked = true })
+    hl.bind("XF86AudioPause", run("playerctl play-pause"), { locked = true })
+    hl.bind("XF86AudioPlay",  run("playerctl play-pause"), { locked = true })
+    hl.bind("XF86AudioPrev",  run("playerctl previous"),   { locked = true })
 
     ----------------------------------------------------------------- WINDOW RULES
     hl.window_rule({
@@ -670,6 +842,15 @@ let
         name  = "fix-xwayland-drags",
         match = { class = "^$", title = "^$", xwayland = true, float = true, fullscreen = false, pin = false },
         no_focus = true,
+    })
+
+    -- Floating terminal the Omarchy menu launches things in.
+    hl.window_rule({
+        name  = "omarchy-floating-terminal",
+        match = { class = "^Omarchy-float$" },
+        float = true,
+        size  = { width = "60%", height = "70%" },
+        center = true,
     })
     -- translucent kitty is handled by kitty's own background_opacity (desktop.nix)
   '';
@@ -690,5 +871,8 @@ in
     brightnessctl
     networkmanagerapplet
     wl-clipboard
+    # On PATH so omarchy-capture (and the capture menu) can call it by name;
+    # the binds route through omarchy-capture rather than the store path.
+    screenshotScript
   ];
 }
