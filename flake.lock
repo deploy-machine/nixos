@@ -151,6 +151,22 @@
         "type": "github"
       }
     },
+    "dev-templates": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1786111220,
+        "narHash": "sha256-b0v0yHK7dlvOKYINy5g4WP0FkLJbmtbWejsyvXd+J6A=",
+        "owner": "nix-templates",
+        "repo": "dev",
+        "rev": "d6b3f5371d64173167103d21cefc9de2a66d80a1",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-templates",
+        "repo": "dev",
+        "type": "github"
+      }
+    },
     "firefox-gnome-theme": {
       "flake": false,
       "locked": {
@@ -642,6 +658,7 @@
     },
     "root": {
       "inputs": {
+        "dev-templates": "dev-templates",
         "home-manager": "home-manager",
         "home-manager-25-11": "home-manager-25-11",
         "lanzaboote": "lanzaboote",

@@ -1,14 +1,43 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, inputs, ... }:
 let
-  # The config repo checkout the menu edits (apps.json / dbs.json) and
-  # scaffolds templates from. Matches the path the per-machine
-  # /etc/nixos/flake.nix consumes as its `config-repo` input.
+  # The config repo checkout the menu edits (apps.json / dbs.json).
+  # Matches the path the per-machine /etc/nixos/flake.nix consumes as its
+  # `config-repo` input.
   repo = "${config.home.homeDirectory}/nixos";
+
+  # Dev-environment templates (Install > Development), baked into the store
+  # so scaffolding is a plain copy: no flake evaluation, works offline.
+  # One dir per template plus index.tsv (name<TAB>description) for the menu.
+  devTemplates = import ./dev-templates.nix {
+    inherit lib;
+    src = inputs.dev-templates;
+    local = ../../templates;
+  };
+  # Framework layers are copied over their upstream base, so they ship the
+  # same .nvim.lua / .vscode / .editorconfig as the language they build on.
+  templateDir = name: t:
+    if t ? base then
+      pkgs.runCommand "dev-template-${name}" { } ''
+        mkdir $out
+        cp -r --no-preserve=mode ${t.base}/. ${t.path}/. $out/
+      ''
+    else t.path;
+  devTemplatesDir = pkgs.linkFarm "omarchy-dev-templates" (
+    lib.mapAttrsToList (name: t: { inherit name; path = templateDir name t; }) devTemplates.all
+    ++ [{
+      name = "index.tsv";
+      path = pkgs.writeText "dev-templates-index.tsv" (lib.concatStrings
+        (lib.mapAttrsToList (name: t: "${name}\t${t.description}\n") devTemplates.templates));
+    }]
+  );
 
   script = name: deps: pkgs.writeShellApplication {
     inherit name;
     runtimeInputs = deps;
-    runtimeEnv.OMARCHY_REPO = repo;
+    runtimeEnv = {
+      OMARCHY_REPO = repo;
+      OMARCHY_DEV_TEMPLATES = devTemplatesDir;
+    };
     text = builtins.readFile ./scripts/${name + ".sh"};
   };
 
@@ -16,7 +45,7 @@ let
   # systemctl, swaync-client, kitty, chromium, ...) resolve via the session
   # PATH so the scripts always use the same build the session runs.
   scripts = [
-    (script "omarchy-menu"             [ pkgs.rofi pkgs.jq pkgs.coreutils pkgs.rofimoji pkgs.cliphist pkgs.wl-clipboard ])
+    (script "omarchy-menu"             [ pkgs.rofi pkgs.jq pkgs.gawk pkgs.coreutils pkgs.rofimoji pkgs.cliphist pkgs.wl-clipboard ])
     (script "omarchy-floating-term"    [ ])
     (script "omarchy-nixos-rebuild"    [ ])
     (script "omarchy-pkg-install"      [ pkgs.gum pkgs.jq pkgs.fzf pkgs.coreutils ])

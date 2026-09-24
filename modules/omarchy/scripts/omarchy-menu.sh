@@ -162,47 +162,17 @@ install_menu() {
 }
 
 dev_menu() {
+  # Generated from the nix-templates/dev set at build time (index.tsv:
+  # name<TAB>description); rofi's filter searches both columns.
   local choice
-  choice=$(menu "New project" \
-    "󰫏  Ruby on Rails" \
-    "  Node.js" \
-    "  Bun" \
-    "  Deno" \
-    "  Go" \
-    "  PHP" \
-    "  Laravel" \
-    "  Symfony" \
-    "  Python" \
-    "  Elixir" \
-    "  Phoenix" \
-    "  Rust" \
-    "  Java" \
-    "  Zig" \
-    "  OCaml" \
-    "  .NET" \
-    "  Clojure" \
-    "  Scala" \
-    "󰁍  Back")
+  choice=$({
+    awk -F'\t' '{ printf "%-15s %s\n", $1, $2 }' "$OMARCHY_DEV_TEMPLATES/index.tsv"
+    echo "󰁍  Back"
+  } | rofi -dmenu -i -p "New project") || true
   case "$choice" in
-  *Ruby*) term omarchy-dev-env ruby ;;
-  *Node*) term omarchy-dev-env node ;;
-  *Bun*) term omarchy-dev-env bun ;;
-  *Deno*) term omarchy-dev-env deno ;;
-  *Go*) term omarchy-dev-env go ;;
-  *Laravel*) term omarchy-dev-env laravel ;;
-  *Symfony*) term omarchy-dev-env symfony ;;
-  *PHP*) term omarchy-dev-env php ;;
-  *Python*) term omarchy-dev-env python ;;
-  *Phoenix*) term omarchy-dev-env phoenix ;;
-  *Elixir*) term omarchy-dev-env elixir ;;
-  *Rust*) term omarchy-dev-env rust ;;
-  *Java*) term omarchy-dev-env java ;;
-  *Zig*) term omarchy-dev-env zig ;;
-  *OCaml*) term omarchy-dev-env ocaml ;;
-  *.NET*) term omarchy-dev-env dotnet ;;
-  *Clojure*) term omarchy-dev-env clojure ;;
-  *Scala*) term omarchy-dev-env scala ;;
-  *Back*) install_menu ;;
+  "") ;;
+  *Back) install_menu ;;
+  *) term omarchy-dev-env "${choice%% *}" ;;
   esac
 }
 

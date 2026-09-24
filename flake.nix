@@ -53,6 +53,15 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Batteries-included per-project dev environments (toolchain, LSP,
+    # linters, formatters, SAST/secret scanners, direnv + VS Code + Neovim
+    # wiring). Non-flake: we only copy template directories out of it, and
+    # this keeps its own nixpkgs pin out of our lock file.
+    dev-templates = {
+      url = "github:nix-templates/dev";
+      flake = false;
+    };
+
     # Apple Silicon (M1/M2/M3) support: kernel, m1n1/u-boot, peripheral
     # firmware extraction, Asahi Mesa stack. Only pulled in by hosts that
     # import nixosModules.hardware.apple-silicon. Follows nixpkgs-25-11 so
@@ -106,37 +115,21 @@
           modules = extraModules;
         };
 
-      # Omarchy-style per-project development environments. Consumed by the
+      # Omarchy-style per-project development environments: every template
+      # from nix-templates/dev plus the framework starters in ./templates
+      # (see modules/omarchy/dev-templates.nix). Consumed by the
       # omarchy-dev-env menu script (Install > Development), or manually:
       #   nix flake new -t path:/home/<user>/nixos#node myproject
       # Each template ships a devShell + .envrc (direnv), replacing omarchy's
       # global `mise use` model with per-project reproducible shells.
-      templates =
-        let
-          t = name: description: {
-            path = ./templates/${name};
-            inherit description;
-          };
-        in {
-          ruby    = t "ruby"    "Ruby on Rails development environment";
-          node    = t "node"    "Node.js development environment";
-          bun     = t "bun"     "Bun development environment";
-          deno    = t "deno"    "Deno development environment";
-          go      = t "go"      "Go development environment";
-          php     = t "php"     "PHP development environment";
-          laravel = t "laravel" "PHP + Laravel development environment";
-          symfony = t "symfony" "PHP + Symfony development environment";
-          python  = t "python"  "Python development environment (uv + ruff)";
-          elixir  = t "elixir"  "Elixir development environment";
-          phoenix = t "phoenix" "Elixir + Phoenix development environment";
-          rust    = t "rust"    "Rust development environment";
-          java    = t "java"    "Java development environment";
-          zig     = t "zig"     "Zig development environment";
-          ocaml   = t "ocaml"   "OCaml development environment";
-          dotnet  = t "dotnet"  ".NET development environment";
-          clojure = t "clojure" "Clojure development environment";
-          scala   = t "scala"   "Scala development environment";
-        };
+      # `base` is only for home.nix's merge; flake templates allow just
+      # path/description/welcomeText.
+      templates = builtins.mapAttrs (_: t: removeAttrs t [ "base" ])
+        (import ./modules/omarchy/dev-templates.nix {
+          inherit (inputs.nixpkgs) lib;
+          src = inputs.dev-templates;
+          local = ./templates;
+        }).all;
 
       # All importable modules surfaced as paths so the local flake can pick
       # only what it needs. Bootstrap composes the modules list by category.
