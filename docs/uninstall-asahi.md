@@ -13,6 +13,13 @@ Official reference (verify against it before running anything):
 
 - [ ] Home directory + anything else you care about on the Linux side is
       backed up externally. The Linux partitions are unrecoverable after this.
+- [ ] **Copy `pre-wipe-backup.tar.gz` off the EFI partition FIRST.** It holds
+      the unique loose files from the Linux home (CV, Learning, Downloads,
+      Wallpapers, ~2.6 MB) and sits next to this file on `disk0s4` — which
+      step 2 below deletes. `diskutil mount disk0s4`, then copy it from
+      `/Volumes/EFI/` into your macOS home before running any deletes.
+      (All git repos — nixos config, dotfiles, carbon, gemminer, warforge —
+      were verified clean and pushed to GitHub on 2026-09-24.)
 - [ ] `~/nixos` (the config repo) is pushed to GitHub
       (`github.com/deploy-machine/nixos`) — the per-machine `/etc/nixos`
       flake references it by local path and dies with the partition.
