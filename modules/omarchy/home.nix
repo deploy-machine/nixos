@@ -5,6 +5,20 @@ let
   # `config-repo` input.
   repo = "${config.home.homeDirectory}/nixos";
 
+  # Theme hierarchy, laid out like Omarchy's: one directory per theme
+  # (upstream's files, plus a generated neovim.lua for themes without one),
+  # collected into a themes tree the switcher reads previews from.
+  theme = import ./theme.nix inputs;
+  themeDir = name: t:
+    if t.generatedNeovim == null then t.dir
+    else pkgs.runCommand "omarchy-theme-${name}" { } ''
+      cp -r --no-preserve=mode ${t.dir} $out
+      cp ${pkgs.writeText "neovim.lua" t.generatedNeovim} $out/neovim.lua
+    '';
+  themeDirs = lib.mapAttrs themeDir theme.all;
+  themesTree = pkgs.linkFarm "omarchy-themes"
+    (lib.mapAttrsToList (name: path: { inherit name path; }) themeDirs);
+
   # Dev-environment templates (Install > Development), baked into the store
   # so scaffolding is a plain copy: no flake evaluation, works offline.
   # One dir per template plus index.tsv (name<TAB>description) for the menu.
@@ -37,6 +51,7 @@ let
     runtimeEnv = {
       OMARCHY_REPO = repo;
       OMARCHY_DEV_TEMPLATES = devTemplatesDir;
+      OMARCHY_THEMES = themesTree;
     };
     text = builtins.readFile ./scripts/${name + ".sh"};
   };
@@ -64,7 +79,7 @@ let
     (script "omarchy-notification"     [ pkgs.libnotify pkgs.curl pkgs.coreutils ])
     (script "omarchy-menu-keybindings" [ pkgs.rofi pkgs.jq pkgs.coreutils pkgs.util-linux ])
     (script "omarchy-wallpaper"        [ pkgs.rofi pkgs.findutils pkgs.jq pkgs.libnotify pkgs.coreutils ])
-    (script "omarchy-theme-set"        [ pkgs.rofi pkgs.jq pkgs.gnused pkgs.gnugrep pkgs.libnotify pkgs.coreutils ])
+    (script "omarchy-theme-set"        [ pkgs.rofi pkgs.jq pkgs.findutils pkgs.gnugrep pkgs.libnotify pkgs.coreutils ])
     (script "omarchy-update"           [ pkgs.gum pkgs.git pkgs.coreutils ])
   ];
 
@@ -85,16 +100,11 @@ in
     pkgs.rofimoji   # emoji picker (SUPER+CTRL+E / Trigger menu)
   ];
 
-  # Per-theme background sets, deployed where omarchy-wallpaper and the
-  # theme default (theme.nix) expect them. Deploy every theme's set — not
-  # just the active one — so omarchy-theme-set can preview/switch without
-  # a rebuild-before-look chicken-and-egg.
-  home.file."Wallpapers/themes/koda-dark" = {
-    source = ./themes/koda-dark/backgrounds;
-    recursive = true;
-  };
-  home.file."Wallpapers/themes/vantablack" = {
-    source = ./themes/vantablack/backgrounds;
-    recursive = true;
-  };
+  # ~/.config/omarchy/themes/<name>/ for every theme, and current/theme →
+  # the active one (backgrounds, preview, neovim.lua, colors.toml). The
+  # wallpaper default, omarchy-wallpaper and the Neovim colorscheme
+  # (~/dotfiles/nvim/lua/plugins/colorscheme.lua) all read through it.
+  xdg.configFile."omarchy/themes".source = themesTree;
+  xdg.configFile."omarchy/current/theme".source = themeDirs.${theme.name};
+  xdg.configFile."omarchy/current/theme.name".text = theme.name;
 }

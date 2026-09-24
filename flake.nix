@@ -62,6 +62,14 @@
       flake = false;
     };
 
+    # Upstream Omarchy, for its theme set: each themes/<name>/ has a
+    # colors.toml the palette is derived from, plus backgrounds, a preview
+    # and usually a neovim.lua. Non-flake: we only read files out of it.
+    omarchy = {
+      url = "github:basecamp/omarchy";
+      flake = false;
+    };
+
     # Apple Silicon (M1/M2/M3) support: kernel, m1n1/u-boot, peripheral
     # firmware extraction, Asahi Mesa stack. Only pulled in by hosts that
     # import nixosModules.hardware.apple-silicon. Follows nixpkgs-25-11 so

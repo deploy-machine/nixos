@@ -2,16 +2,16 @@
 # Modern, visually-enhanced CLI tools.
 #
 # Stylix split: bat, fzf, yazi and lazygit are Stylix targets, so they theme to
-# milkoutside automatically (don't set their colours here or it fights Stylix).
+# the active theme automatically (don't set their colours here or it fights Stylix).
 # lsd is pulled onto the grayscale ramp below; zoxide, dust, duf, procs, … still
 # carry their own palettes, which look fine on GeistMono Nerd Font.
-{ config, pkgs, lib, ... }:
-let c = import ./colors.nix;
+{ config, pkgs, lib, inputs, ... }:
+let c = import ./colors.nix inputs;
 in
 {
   # ls -> lsd : icons + colour. enableZshIntegration creates the alias family
   # (ls, ll = -l, la = -A, lt = --tree, lla = -lA, llt = -l --tree).
-  # Colors mapped onto the koda-dark grey ramp from colors.nix. Icons stay on
+  # Colors from the active theme (colors.nix). Icons stay on
   # the default (auto) so glyphs still render in the terminal.
   # Setting a non-empty `colors` makes home-manager flip color.theme to "custom".
   programs.lsd = {

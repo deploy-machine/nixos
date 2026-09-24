@@ -6,9 +6,9 @@
 # Static QML lives next to this file; Theme.qml is generated so the palette
 # always tracks the active theme (modules/omarchy/theme.nix) and the
 # workspace-click dispatch matches the Hyprland dialect per arch.
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, inputs, ... }:
 let
-  c = import ../colors.nix;
+  c = import ../colors.nix inputs;
   isAsahi = pkgs.stdenv.hostPlatform.isAarch64;
 
   # Hyprland 0.55 (x86) evaluates dispatch args as Lua; 0.52 (Asahi) wants
@@ -137,7 +137,7 @@ in
   # Run as part of the graphical session, like waybar before it.
   systemd.user.services.quickshell = {
     Unit = {
-      Description = "Quickshell bar (koda greyscale)";
+      Description = "Quickshell bar";
       PartOf = [ "graphical-session.target" ];
       After = [ "graphical-session.target" ];
     };

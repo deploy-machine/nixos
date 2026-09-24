@@ -1,6 +1,6 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, inputs, ... }:
 let
-  c = import ./colors.nix;
+  c = import ./colors.nix inputs;
   allowUnfree = pkgs.config.allowUnfree or false;
 
   # Tuta Mail PWA. Tuta upstream ships only an x86_64 Electron AppImage, and
@@ -145,10 +145,7 @@ in
   };
 
   # ---------------- kitty ----------------
-  # Full greyscale terminal. Every ANSI slot is a luminance step so TUI
-  # apps still differentiate categories, but nothing renders in color.
-  # color1/9 (ANSI red — errors) is the brightest so critical output
-  # still stands out.
+  # Colors follow the active Omarchy theme (modules/omarchy/theme.nix).
   programs.kitty = {
     enable = true;
     font = { name = "JetBrainsMono Nerd Font"; size = 12; };
@@ -169,29 +166,21 @@ in
       background_opacity = "0.92";
       window_padding_width = 8;
 
-      # ANSI 16 — pure grey ramp. Normal (0..7) sits in the mid range;
-      # bright (8..15) is one luminance step higher. color1/9 is the
-      # brightest so `ls` errors, git-diff removals, and other "red"
-      # signals still catch the eye.
-      color0  = "#0a0a0a"; color8  = "#3a3a3a";
-      color1  = "#d0d0d0"; color9  = "#e8e8e8";
-      color2  = "#808080"; color10 = "#a0a0a0";
-      color3  = "#c0c0c0"; color11 = "#d0d0d0";
-      color4  = "#909090"; color12 = "#b0b0b0";
-      color5  = "#a0a0a0"; color13 = "#c0c0c0";
-      color6  = "#b0b0b0"; color14 = "#c8c8c8";
-      color7  = "#b0b0b0"; color15 = "#d0d0d0";
-    };
+      # ANSI 16 from the active theme, mapped the way Omarchy's kitty
+      # template does (0 = background, 7 = foreground, 8 = muted, …).
+    } // builtins.listToAttrs (lib.imap0
+      (i: hex: { name = "color${toString i}"; value = "#${hex}"; })
+      (import ../omarchy/theme.nix inputs).ansi);
   };
 
   # ---------------- rofi ----------------
   programs.rofi = {
     enable = true;
     package = pkgs.rofi;
-    theme = "${config.xdg.configHome}/rofi/milkoutside.rasi";
+    theme = "${config.xdg.configHome}/rofi/omarchy.rasi";
   };
 
-  xdg.configFile."rofi/milkoutside.rasi".text = ''
+  xdg.configFile."rofi/omarchy.rasi".text = ''
     /* Full greyscale launcher — prompt caret and selected row are
      * bright grey; everything else is a darker step. */
     * {
@@ -283,7 +272,7 @@ in
 
   # ---------------- hyprlock (screen locker) ----------------
   # Triggered by ALT+CTRL+L (manual) or by hypridle on inactivity. Themed in
-  # the milkoutside palette: pink/red outline around the input field, big
+  # the theme palette: accent outline around the input field, big
   # JetBrains-style clock on top.
   programs.hyprlock = {
     enable = true;
@@ -298,7 +287,7 @@ in
       background = lib.mkForce [{
         monitor     = "";
         # Follows the active theme's default background (theme.nix).
-        path        = "${config.home.homeDirectory}/${(import ../omarchy/theme.nix).wallpaper}";
+        path        = "${config.home.homeDirectory}/${(import ../omarchy/theme.nix inputs).wallpaper}";
         blur_passes = 3;
         blur_size   = 8;
       }];

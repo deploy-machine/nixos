@@ -1,34 +1,37 @@
 { inputs, pkgs, ... }:
+let
+  # The active Omarchy theme (modules/omarchy/theme.nix, selected in
+  # theme.json), in Omarchy's own key names.
+  theme = import ../omarchy/theme.nix inputs;
+  k = theme.palette;
+in
 {
   imports = [ inputs.stylix.nixosModules.stylix ];
 
   stylix = {
     enable = true;
-    polarity = "dark";
+    polarity = theme.mode;
 
-    # Full greyscale base16. Every slot is a shade of grey — syntax
-    # highlighting will differentiate by luminance (numbers slightly
-    # different from strings different from functions) but no hue lands
-    # anywhere. base00–base07 is the standard ramp; base08–base0F are
-    # spread across the ramp so that categorical bases still visibly
-    # differ from each other in supported editors.
+    # base16 from the theme: base00–base07 is the background → foreground
+    # ramp, base08–base0F the hues (red, orange, yellow, green, cyan, blue,
+    # magenta, brown), the standard base16 slot meanings.
     base16Scheme = {
-      base00 = "0a0a0a"; # background
-      base01 = "141414"; # panels / lighter background
-      base02 = "272727"; # selection (koda line)
-      base03 = "50585d"; # comments / disabled (koda comment)
-      base04 = "777777"; # dim foreground (koda keyword/type)
-      base05 = "b0b0b0"; # foreground (koda fg)
-      base06 = "d0d0d0"; # bright foreground
-      base07 = "ffffff"; # brightest / emphasis
-      base08 = "e0e0e0"; # was accent — now bright grey (errors, diff-removed)
-      base09 = "9a9a9a"; # numbers/constants
-      base0A = "c0c0c0"; # classes/warnings
-      base0B = "808080"; # strings
-      base0C = "b0b0b0"; # support/regex
-      base0D = "d0d0d0"; # functions (slightly bright — draws the eye)
-      base0E = "a0a0a0"; # keywords
-      base0F = "707070"; # deprecated (dim)
+      base00 = k.background;
+      base01 = k.lighter_background;
+      base02 = k.selection;
+      base03 = k.muted;
+      base04 = k.dark_foreground;
+      base05 = k.foreground;
+      base06 = k.light_foreground;
+      base07 = k.bright_foreground;
+      base08 = k.red;
+      base09 = k.orange;
+      base0A = k.yellow;
+      base0B = k.green;
+      base0C = k.cyan;
+      base0D = k.blue;
+      base0E = k.magenta;
+      base0F = k.brown;
     };
 
     fonts = {

@@ -633,6 +633,22 @@
         "type": "github"
       }
     },
+    "omarchy": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1790282866,
+        "narHash": "sha256-USO/Ws0m7DY9yyz3oWIUuNH+aQshik2w16K90ea4yR8=",
+        "owner": "basecamp",
+        "repo": "omarchy",
+        "rev": "93e8cd56b19df756a6435b0c0e8ed5073d192c36",
+        "type": "github"
+      },
+      "original": {
+        "owner": "basecamp",
+        "repo": "omarchy",
+        "type": "github"
+      }
+    },
     "pre-commit": {
       "inputs": {
         "flake-compat": "flake-compat",
@@ -667,6 +683,7 @@
         "nixpkgs": "nixpkgs",
         "nixpkgs-25-11": "nixpkgs-25-11",
         "nixpkgs-unstable": "nixpkgs-unstable",
+        "omarchy": "omarchy",
         "stylix": "stylix",
         "stylix-25-11": "stylix-25-11"
       }

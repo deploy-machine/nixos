@@ -1,4 +1,4 @@
-// Greyscale pill bar — the koda-dark aesthetic (rounded pills, luminance
+// Pill bar in the active Omarchy theme (rounded pills, luminance
 // signalling, no accent hue), with omarchy-style clickable panels: clock →
 // calendar popup, audio → mixer popup, power → system menu, nixos → apps.
 // All colors come from the generated Theme singleton, so theme switches

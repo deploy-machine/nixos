@@ -12,9 +12,8 @@ Underneath the Omarchy layer is a host-agnostic NixOS module library:
 hardware modules (CPU/GPU/VM guests, Apple Silicon, TPM2 disk unlock, Secure
 Boot) and deployment roles (desktop, headless, gaming, kiosk, laptop, NAS).
 An interactive bootstrap (`./run.sh`) detects the machine and picks from
-them. The look is a luminance-only greyscale rice (the `koda-dark` and
-`vantablack` palettes), carried over from the earlier *milkoutside / cybr*
-configs that the Waybar, kitty, rofi and starship styling comes from.
+them. The look comes from Omarchy's theme set: every upstream theme,
+switchable from the menu, colours the whole desktop (see [Themes](#themes)).
 
 **Per-host config never lands in the repo.** Each machine owns its
 `/etc/nixos/` and pins this repo as a `path:` flake input.
@@ -65,7 +64,7 @@ pinned, and knows the repo location through `$OMARCHY_REPO`.
 | `omarchy-pkg-install` → `pacman -S` | Search nixpkgs (fzf), append the attribute to `modules/omarchy/apps.json`, rebuild. Unknown names are skipped with a warning, so a typo can't break a rebuild. |
 | `omarchy-install-dev-env` → `mise use --global` | Pick one of ~70 [nix-templates/dev](https://github.com/nix-templates/dev) templates and scaffold a **per-project** devShell with direnv (see below) |
 | `omarchy-install-docker-dbs` → `docker run` | Toggle PostgreSQL / MySQL / MariaDB / Redis / MongoDB / MSSQL in `dbs.json`; each becomes a `virtualisation.oci-containers` systemd unit bound to localhost |
-| `omarchy-theme-set` | Pick a palette from `theme.nix`, written to `theme.json`, rebuild. Hyprland, kitty, rofi, swaync, the Quickshell bar, hyprlock and the prompt all follow |
+| `omarchy-theme-switcher` / `omarchy-theme-set` | Same themes, same `~/.config/omarchy/themes` + `current/theme` layout; the pick is written to `theme.json` and the system rebuilds |
 | `omarchy-update` | Rebuild, bump flake inputs + rebuild, roll back a generation, garbage collect |
 | Web apps / TUIs | Same as Omarchy: imperative `.desktop` entries in `~/.local/share/applications` (Chromium `--app` windows, or kitty-wrapped commands) |
 
@@ -75,7 +74,7 @@ A rofi tree, `omarchy-menu [route]`:
 
 - **Apps**: the launcher
 - **Trigger**: capture (screenshot region/window/screen through satty, screen recording, OCR, QR, colour picker), toggles, clipboard history, emoji
-- **Style**: theme, background, palette editor, Hyprland look
+- **Style**: theme (preview grid), background, Hyprland look
 - **Setup**: Wi-Fi, Bluetooth, audio, monitors, keybindings, open the config repo in the editor or lazygit
 - **Install / Remove**: package, web app, TUI, development environment, Docker database
 - **Update**: rebuild, bump inputs, roll back, garbage collect
@@ -140,7 +139,7 @@ modules/
     base.nix            systemd-boot, NetworkManager, Tailscale, PipeWire, Hyprland, SSH, zram, nix GC/optimise
     users.nix           primary user (UID 1000, zsh, lingering, passwordless sudo, key-only SSH)
     packages.nix        system packages; FOSS always, unfree gated on allowUnfree
-    stylix.nix          system Stylix + greyscale base16 scheme
+    stylix.nix          system Stylix; base16 scheme + polarity from the active theme
     home-manager.nix    home-manager.users.<username> = modules/home
 
   hardware/             opt-in per machine
@@ -174,11 +173,10 @@ modules/
   omarchy/              the Omarchy port
     home.nix            menu scripts, menu-installed packages, theme wallpaper sets
     system.nix          Docker + menu-managed database containers
-    theme.nix           palette registry (koda-dark, vantablack) + active selection
+    theme.nix           Omarchy theme registry (colors.toml → palette, ANSI, base16, neovim)
     dev-templates.nix   nix-templates/dev + local framework layers
     apps.json dbs.json theme.json    state the menu edits
     scripts/            omarchy-* shell scripts
-    themes/<name>/backgrounds/       per-theme wallpapers → ~/Wallpapers/themes/<name>
 ```
 
 ## Bootstrap
@@ -223,17 +221,40 @@ disks. With an encrypted root, the desktop role skips the second login
 prompt: the LUKS passphrase or TPM PIN already guards the machine, and
 hyprlock still covers idle and suspend.
 
-## Theming
+## Themes
 
-Two layers, both greyscale:
+All of Omarchy's themes, read from upstream (the pinned `omarchy` flake
+input): catppuccin, catppuccin-latte, ethereal, everforest, flexoki-light,
+gruvbox, hackerman, kanagawa, last-horizon, lumon, lupine, matte-black,
+miasma, nord, osaka-jade, retro-82, ristretto, rose-pine, solitude,
+tokyo-night, vantablack and white. `nix flake update omarchy` picks up new
+ones.
 
-- **Stylix** themes everything it supports (GTK, Qt, console, cursor, bat,
-  btop, fzf, Chromium, VS Code, Vencord, …) from the base16 scheme in
-  `modules/common/stylix.nix`.
-- **The Omarchy palette** (`modules/omarchy/theme.nix`, selected in
-  `theme.json`) drives the hand-styled parts: Hyprland, kitty, rofi, swaync,
-  hyprlock, the Quickshell bar and the prompt. `modules/home/stylix.nix`
-  keeps Stylix out of those. Switch with Style › Theme.
+Pick one in Style › Theme (a grid of the themes' preview images) or with
+`omarchy-theme-set <name>`. The choice is written to
+`modules/omarchy/theme.json` and the system rebuilds. The layout on disk
+matches Omarchy's:
+
+```
+~/.config/omarchy/themes/<name>/     every theme: colors.toml, backgrounds/, preview.png, neovim.lua, …
+~/.config/omarchy/current/theme  →   the active theme's directory
+```
+
+`modules/omarchy/theme.nix` reads each theme's `colors.toml` and applies
+Omarchy's fallback rules for missing keys. It then drives:
+
+- **Hyprland** borders (accent), **kitty** (ANSI 16, mapped like Omarchy's
+  kitty template), **rofi**, **swaync**, **hyprlock**, the **Quickshell**
+  bar and the **starship** prompt, through `modules/home/colors.nix`
+- **Stylix** (`modules/common/stylix.nix`): a base16 scheme and light/dark
+  polarity from the theme, for GTK, Qt, console, bat, btop, fzf, Chromium,
+  VS Code, Vencord, …
+- **Neovim**: `~/dotfiles/nvim/lua/plugins/colorscheme.lua` loads the
+  active theme's `neovim.lua` (LazyVim spec). Themes that don't ship one get
+  the aether.nvim spec Omarchy generates from the palette. Restart Neovim
+  after switching.
+- **Wallpaper**: the theme's first background. Style › Background picks
+  from the theme's set or from loose files in `~/Wallpapers`.
 
 ## Notes
 

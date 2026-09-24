@@ -412,11 +412,19 @@ if [ ! -d "$INVOKING_HOME/dotfiles/nvim" ]; then
   run_as_user rm -rf "$INVOKING_HOME/dotfiles/nvim/.git"
   run_as_user mkdir -p "$INVOKING_HOME/dotfiles/nvim/lua/plugins"
 
+  # Colorscheme follows the active Omarchy theme (modules/omarchy/theme.nix
+  # links its directory to ~/.config/omarchy/current/theme).
   run_as_user tee "$INVOKING_HOME/dotfiles/nvim/lua/plugins/colorscheme.lua" >/dev/null << 'LUA'
-return {
-  { "color-schemes/milkoutside.nvim", lazy = false, priority = 1000, opts = {} },
-  { "LazyVim/LazyVim", opts = { colorscheme = "milkoutside" } },
-}
+local theme = vim.fn.expand("~/.config/omarchy/current/theme/neovim.lua")
+if vim.fn.filereadable(theme) == 1 then
+  return dofile(theme)
+end
+return {}
+LUA
+
+  # Project-local .nvim.lua, as shipped by the nix-templates/dev templates.
+  run_as_user tee "$INVOKING_HOME/dotfiles/nvim/lua/config/options.lua" >/dev/null << 'LUA'
+vim.o.exrc = true
 LUA
 
   run_as_user tee "$INVOKING_HOME/dotfiles/nvim/lua/plugins/nixos.lua" >/dev/null << 'LUA'

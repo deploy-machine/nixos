@@ -1,5 +1,5 @@
 # The Omarchy menu, recreated as a rofi -dmenu tree (themed by the
-# existing milkoutside.rasi). Route argument jumps straight to a submenu:
+# active theme's omarchy.rasi). Route argument jumps straight to a submenu:
 #   omarchy-menu [root|system|trigger|capture|toggle|style|setup|install|remove|update|learn]
 # Escape closes; "Back" walks up one level. Arch-specific omarchy actions
 # are re-expressed as NixOS/flake operations throughout.
@@ -107,17 +107,17 @@ toggle_menu() {
 
 style_menu() {
   # Theme switching is declarative: omarchy-theme-set edits theme.json and
-  # rebuilds, so every colors.nix consumer follows. All registered themes
-  # are monochrome — the luminance-only rice survives a switch.
+  # rebuilds, so every colors.nix consumer follows. Themes are Omarchy's
+  # full set plus local ones in modules/omarchy/themes/ (colors.toml format).
   case $(menu "Style" \
     "󰸌  Theme" \
     "  Background" \
-    "  Edit palettes (theme.nix)" \
+    "  Edit local themes" \
     "  Edit Hyprland look" \
     "󰁍  Back") in
   *Theme*) omarchy-theme-set ;;
   *Background*) omarchy-wallpaper ;;
-  *palettes*) edit_in_term modules/omarchy/theme.nix ;;
+  *themes*) edit_in_term modules/omarchy/themes ;;
   *Hyprland*) edit_in_term modules/home/hyprland.nix ;;
   *Back*) main_menu ;;
   esac

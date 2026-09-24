@@ -1,6 +1,6 @@
 # /etc/nixos/shell.nix
 # zsh + starship. Starship is shell-agnostic; cybr ships it for fish, here it
-# drives zsh (you asked for zsh). Prompt = cybr "lucid" recoloured to milkoutside.
+# drives zsh (you asked for zsh). Prompt = cybr "lucid", coloured by the active Omarchy theme.
 #
 # Requires in configuration.nix (system-level, for the login shell):
 #   programs.zsh.enable = true;
@@ -8,7 +8,9 @@
 #
 # NOTE: stylix.targets.starship is disabled in home.nix so Stylix doesn't write a
 # competing prompt config.
-{ config, pkgs, ... }:
+{ config, pkgs, inputs, ... }:
+let c = import ./colors.nix inputs;
+in
 {
   home.packages = with pkgs; [ starship ];
 
@@ -42,7 +44,7 @@
     };
   };
 
-  # Exact cybr prompt, glyphs preserved, palette = milkoutside.
+  # Exact cybr prompt, glyphs preserved; palette follows the active theme.
   xdg.configFile."starship.toml".text = ''
 # ---------------------------------------
 # cybr-starship    lucid theme for starship
@@ -78,7 +80,7 @@ $time\
 $line_break$character
 """
 
-palette = "milkoutside"
+palette = "omarchy"
 
 [username]
 show_always = true
@@ -129,38 +131,33 @@ when = 'true'
 style = "fg:cy0 bg:cy2"
 format = '[ $output ]($style)'
 
-# Full greyscale palette. Every slot is a shade of grey — the prompt
-# segmentation reads by luminance only, no color anywhere. `re0` (once
-# the accent) is now the brightest fill so the directory block and
-# character arrow still catch the eye.
-[palettes.milkoutside]
-no0 = "#0a0a0a"
-no1 = "#141414"
+# Palette from the active Omarchy theme (modules/omarchy/theme.nix). Each
+# segment is a pill: <x>0 is its colour, <x>2 the dark fill behind it.
+# `re0` is the accent, so the directory block and the prompt caret land
+# as the visual anchor.
+[palettes.omarchy]
+no0 = "#${c.bg}"
+no1 = "#${c.bgAlt}"
 
-# Bright-grey "highlight" slot — used on [directory] and [character]
-# so the current path + prompt caret land as the visual anchor.
-re0 = "#e0e0e0"
-re2 = "#3a3a3a"
+re0 = "#${c.accent}"
+re2 = "#${c.border}"
 
-# Language / status segments — pure grey pairs (bright text on
-# dark pill). Existing "solid pill + darker background" powerline
-# shape survives unchanged.
-gr0 = "#b0b0b0"
-gr2 = "#1c1c1c"
-ye0 = "#b0b0b0"
-ye2 = "#1c1c1c"
-bl0 = "#b0b0b0"
-bl2 = "#1c1c1c"
-pu0 = "#b0b0b0"
-pu2 = "#1c1c1c"
-cy0 = "#b0b0b0"
-cy2 = "#272727"
-wh0 = "#b0b0b0"
-wh2 = "#1c1c1c"
-me0 = "#b0b0b0"
-me2 = "#1c1c1c"
-or0 = "#b0b0b0"
-or2 = "#1c1c1c"
+gr0 = "#${c.green}"
+gr2 = "#${c.surface}"
+ye0 = "#${c.yellow}"
+ye2 = "#${c.surface}"
+bl0 = "#${c.blue}"
+bl2 = "#${c.surface}"
+pu0 = "#${c.magenta}"
+pu2 = "#${c.surface}"
+cy0 = "#${c.cyan}"
+cy2 = "#${c.selection}"
+wh0 = "#${c.fg}"
+wh2 = "#${c.surface}"
+me0 = "#${c.danger}"
+me2 = "#${c.surface}"
+or0 = "#${c.orange}"
+or2 = "#${c.surface}"
 
 [git_branch]
 symbol = ""

@@ -1,10 +1,10 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, inputs, ... }:
 let
-  c = import ./colors.nix;
+  c = import ./colors.nix inputs;
   # Default background follows the active theme (modules/omarchy/theme.nix);
   # background sets are deployed to ~/Wallpapers/themes/<name>/ by
   # modules/omarchy/home.nix. omarchy-wallpaper switches within the set.
-  wallpaper = "${config.home.homeDirectory}/${(import ../omarchy/theme.nix).wallpaper}";
+  wallpaper = "${config.home.homeDirectory}/${(import ../omarchy/theme.nix inputs).wallpaper}";
 
   # 26.05 renamed swww → awww; 25.11 still ships swww. The CLIs are
   # identical (`<bin> img <path>`, `<bin>-daemon`) so the autostart lines
@@ -147,7 +147,7 @@ let
 
   # ---------------------------- .conf (Hyprland 0.52, Asahi / 25.11) --------
   hyprlandConf = ''
-    # milkoutside / cyberpunk Hyprland config (.conf, Hyprland 0.52)
+    # Omarchy-style Hyprland config (.conf, Hyprland 0.52)
 
     $terminal    = kitty
     $fileManager = thunar
@@ -177,9 +177,8 @@ let
         gaps_in  = 5
         gaps_out = 20
         border_size = 2
-        # Full greyscale rice: active window border is a bright→brighter
-        # grey gradient. Focus signal reads via luminance, no color.
-        col.active_border = rgb(${c.fg}) rgb(${c.fgBright}) 45deg
+        # Active border takes the theme accent, as in Omarchy.
+        col.active_border = rgb(${c.accent})
         col.inactive_border = rgb(${c.border})
         resize_on_border = false
         allow_tearing = false
@@ -489,7 +488,7 @@ let
 
   # ---------------------------- .lua (Hyprland 0.55+, 26.05) ---------------
   hyprlandLua = ''
-    -- milkoutside / cyberpunk Hyprland config (native Lua, Hyprland 0.55+)
+    -- Omarchy-style Hyprland config (native Lua, Hyprland 0.55+)
 
     local terminal    = "kitty"
     local fileManager = "thunar"
@@ -561,6 +560,29 @@ let
                 end
             end
         end
+
+        -- A monitor that comes up after 1-10 are all pinned elsewhere (e.g.
+        -- the n == 1 layout during boot) gets a fresh workspace 11, 12, ….
+        -- No keybind reaches those, so windows opened there vanish once the
+        -- monitor switches to its pinned workspace. Move them to the first
+        -- pinned workspace of the monitor they're on.
+        local home = {}
+        for i, mon in ipairs(monitors) do
+            local list = layout[i]
+            if list and list[1] then home[mon.name] = list[1] end
+        end
+        for _, ws in ipairs(hl.get_workspaces() or {}) do
+            local target = ws.monitor and home[ws.monitor.name]
+            if target and not ws.special and ws.id > 10 then
+                for _, win in ipairs(hl.get_workspace_windows(ws) or {}) do
+                    hl.dispatch(hl.dsp.window.move({
+                        workspace = tostring(target),
+                        window    = "address:" .. win.address,
+                        follow    = false,
+                    }))
+                end
+            end
+        end
     end
 
     -- Call inline so `hyprctl reload` re-pins immediately (monitors are already
@@ -584,9 +606,8 @@ let
             gaps_out = 20,
             border_size = 2,
             col = {
-                -- Full greyscale: bright grey → brighter grey gradient
-                -- on the active border. Luminance-only focus signal.
-                active_border   = { colors = {"rgb(${c.fg})", "rgb(${c.fgBright})"}, angle = 45 },
+                -- Active border takes the theme accent, as in Omarchy.
+                active_border   = "rgb(${c.accent})",
                 inactive_border = "rgb(${c.border})",
             },
             resize_on_border = false,

@@ -35,7 +35,7 @@ in
       };
     };
 
-    # Stylix writes ~/.config/Vencord/themes/stylix.theme.css (milkoutside) and
+    # Stylix writes ~/.config/Vencord/themes/stylix.theme.css (active theme) and
     # adds it to enabledThemes — only relevant when nixcord is on.
     stylix.targets.nixcord.enable = true;
   };
