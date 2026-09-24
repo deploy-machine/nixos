@@ -1,141 +1,245 @@
-# milkoutside / cybr — modular NixOS toolkit
+# Omarchy on NixOS: a modular, declarative desktop
 
-A **host-agnostic** library of NixOS modules — hardware (CPU/GPU/VM-guest),
-deployment role (headless/desktop/gaming-kiosk + laptop/multi-monitor/gaming),
-and a shared user/theming layer (Hyprland, Waybar, Stylix, Nixcord, LazyVim,
-zsh+starship). An interactive bootstrap (`./run.sh`) detects the machine's
-hardware, asks the deployment questions a script can't sniff, and writes a
-per-machine `/etc/nixos/{flake,host,hardware-configuration}.nix` that composes
-the right modules.
+This repo rebuilds [Omarchy](https://omarchy.org) on NixOS. Omarchy is DHH's
+opinionated Arch Linux + Hyprland setup. The keybindings, the SUPER+SPACE
+menu, the theme switcher, dev-environment and database installers, web apps,
+TUIs, capture tools and toggles all come across. What changes is how they're
+built. Omarchy runs `pacman`, `mise` and `docker run` against a live system.
+Here every menu action edits a file in this repo and rebuilds, so the machine
+always matches what's committed.
 
-**Per-host config never lands in the repo.** The repo is just the modules + the
-bootstrap. Each machine owns its `/etc/nixos/` and pins this repo as a flake
-input (`path:/path/to/this/repo`).
+Underneath the Omarchy layer is a host-agnostic NixOS module library:
+hardware modules (CPU/GPU/VM guests, Apple Silicon, TPM2 disk unlock, Secure
+Boot) and deployment roles (desktop, headless, gaming, kiosk, laptop, NAS).
+An interactive bootstrap (`./run.sh`) detects the machine and picks from
+them. The look is a luminance-only greyscale rice (the `koda-dark` and
+`vantablack` palettes), carried over from the earlier *milkoutside / cybr*
+configs that the Waybar, kitty, rofi and starship styling comes from.
+
+**Per-host config never lands in the repo.** Each machine owns its
+`/etc/nixos/` and pins this repo as a `path:` flake input.
+
+## How it fits together
+
+```
+~/nixos  (this repo)                        /etc/nixos  (per machine, generated)
+├── flake.nix  → lib.mkHost,        ◄────── flake.nix    inputs.config-repo = path:~/nixos
+│                nixosModules.*,             host.nix     hostname, allowUnfree, overrides
+│                templates.*                 hardware-configuration.nix
+├── modules/{common,hardware,roles,home,omarchy}
+├── templates/     framework dev-env layers
+└── run.sh         bootstrap that writes /etc/nixos
+```
+
+`lib.mkHost { hostname, username, system, channel, extraModules }` composes a
+system from the modules the bootstrap selected. `channel` picks a matched
+nixpkgs + home-manager + Stylix trio:
+
+| Channel | Used by | Why |
+| --- | --- | --- |
+| `26.05` (default) | x86_64 hosts | Current release; Hyprland 0.55+ with the native Lua config |
+| `25.11` | Apple Silicon | The Asahi installer and the `nixos-apple-silicon` binary cache are pinned here; Hyprland 0.52 with the `.conf` config |
+
+A few fast-moving packages (currently `claude-code`) come from
+`nixos-unstable` without moving the whole system.
+
+**Rebuilding.** Because `/etc/nixos` locks this repo by content hash, a plain
+`nixos-rebuild` builds the *last locked copy* and ignores your edits. Always
+refresh the input first. The `nrs` shell alias and Menu › Update › Rebuild
+both do this:
+
+```bash
+sudo sh -c 'nix flake update config-repo --flake /etc/nixos && nixos-rebuild switch --flake /etc/nixos --impure'
+```
+
+## The Omarchy layer
+
+`modules/omarchy/` plus the Hyprland keybinds in `modules/home/hyprland.nix`.
+Every script is a `writeShellApplication` on `PATH` with its dependencies
+pinned, and knows the repo location through `$OMARCHY_REPO`.
+
+### Omarchy → NixOS
+
+| Omarchy (Arch) | Here |
+| --- | --- |
+| `omarchy-pkg-install` → `pacman -S` | Search nixpkgs (fzf), append the attribute to `modules/omarchy/apps.json`, rebuild. Unknown names are skipped with a warning, so a typo can't break a rebuild. |
+| `omarchy-install-dev-env` → `mise use --global` | Pick one of ~70 [nix-templates/dev](https://github.com/nix-templates/dev) templates and scaffold a **per-project** devShell with direnv (see below) |
+| `omarchy-install-docker-dbs` → `docker run` | Toggle PostgreSQL / MySQL / MariaDB / Redis / MongoDB / MSSQL in `dbs.json`; each becomes a `virtualisation.oci-containers` systemd unit bound to localhost |
+| `omarchy-theme-set` | Pick a palette from `theme.nix`, written to `theme.json`, rebuild. Hyprland, kitty, rofi, swaync, the Quickshell bar, hyprlock and the prompt all follow |
+| `omarchy-update` | Rebuild, bump flake inputs + rebuild, roll back a generation, garbage collect |
+| Web apps / TUIs | Same as Omarchy: imperative `.desktop` entries in `~/.local/share/applications` (Chromium `--app` windows, or kitty-wrapped commands) |
+
+### The menu (SUPER+SPACE)
+
+A rofi tree, `omarchy-menu [route]`:
+
+- **Apps**: the launcher
+- **Trigger**: capture (screenshot region/window/screen through satty, screen recording, OCR, QR, colour picker), toggles, clipboard history, emoji
+- **Style**: theme, background, palette editor, Hyprland look
+- **Setup**: Wi-Fi, Bluetooth, audio, monitors, keybindings, open the config repo in the editor or lazygit
+- **Install / Remove**: package, web app, TUI, development environment, Docker database
+- **Update**: rebuild, bump inputs, roll back, garbage collect
+- **Learn**: live keybinding cheatsheet, NixOS manual, nixpkgs search, Home Manager options, Hyprland wiki
+- **System**: lock, suspend, logout, restart Hyprland, reboot, shutdown
+
+Direct routes are bound too: SUPER+ESC system, SUPER+CTRL+C capture,
+SUPER+CTRL+O toggles, SUPER+K keybindings, SUPER+CTRL+SPACE wallpaper,
+SUPER+CTRL+E emoji. SUPER+CTRL+I / N toggle idle and nightlight, SUPER+SHIFT+SPACE
+toggles the bar, and SUPER+, / SHIFT+, / CTRL+, dismiss or silence
+notifications. Press SUPER+K for the full list; it's read live from `hyprctl`.
+
+### Development environments
+
+Install › Development environment lists every template from
+[nix-templates/dev](https://github.com/nix-templates/dev), pinned as the
+`dev-templates` flake input, plus three framework layers from `templates/`.
+Each scaffolded project gets:
+
+- `flake.nix`: a devShell with the toolchain, language server, linters,
+  formatters and SAST/secret scanners, plus `lint`, `fmt` and `scan` commands
+- `.envrc`: `use flake`, so direnv (with nix-direnv) loads the shell on `cd`
+- `.nvim.lua`: plugin-free LSP + format-on-save. `exrc` is enabled in the
+  LazyVim config; `:trust` it once per project
+- `.vscode/`: recommended extensions, settings and tasks
+- `.editorconfig`, `.gitignore`
+
+| Framework layer | Built on | Adds |
+| --- | --- | --- |
+| `laravel` | upstream `php` | Node.js, the `laravel` installer, `node_modules/.bin` on PATH |
+| `symfony` | upstream `php` | `symfony-cli` |
+| `phoenix` | upstream `elixir` | `inotify-tools` for live reload |
+
+A layer's `flake.nix` pulls the upstream devShell in through `inputsFrom`.
+When the templates are built, the upstream editor files are merged underneath
+it (`modules/omarchy/dev-templates.nix` and `home.nix`). Scaffolding copies
+from the Nix store, so it works offline.
+
+Outside the menu:
+
+```bash
+omarchy-dev-env rust                        # prompts for a directory
+nix flake new -t path:$HOME/nixos#python ./myproject
+```
+
+The flake also exposes upstream's aliases (`ts`, `js`, `k8s`, `tf`, `sh`,
+`md`, `c`/`cpp`, `gha`), plus `dotnet` → `csharp`. Update the template set with
+`nix flake update dev-templates` and rebuild. A framework template made with a
+manual `nix flake new` includes only the layer's own files; the menu adds the
+upstream editor files.
 
 ## Layout
 
 ```
-flake.nix              # exposes lib.mkHost + nixosModules.{common,hardware,roles}
-run.sh                 # interactive bootstrap
-nixos.png              # default wallpaper (copied to ~/Wallpapers by bootstrap)
+flake.nix               lib.mkHost, nixosModules.{common,hardware,roles}, templates
+run.sh                  interactive bootstrap
+templates/              framework dev-env layers (laravel, symfony, phoenix)
+docs/uninstall-asahi.md removing Asahi from the MacBook and returning to macOS-only
 
 modules/
-  common/              # always-on system layer
-    base.nix           # bootloader, network, locales, audio, hyprland, ssh, nix.settings
-    users.nix          # the primary user (username from specialArgs)
-    packages.nix       # system packages; FOSS always + unfree gated on allowUnfree
-    stylix.nix         # system-level Stylix import + base16 palette
-    home-manager.nix   # wires home-manager.users.<username> = import ../home
+  common/               always on
+    base.nix            systemd-boot, NetworkManager, Tailscale, PipeWire, Hyprland, SSH, zram, nix GC/optimise
+    users.nix           primary user (UID 1000, zsh, lingering, passwordless sudo, key-only SSH)
+    packages.nix        system packages; FOSS always, unfree gated on allowUnfree
+    stylix.nix          system Stylix + greyscale base16 scheme
+    home-manager.nix    home-manager.users.<username> = modules/home
 
-  hardware/            # opt-in per-machine
-    cpu-intel.nix      cpu-amd.nix
-    gpu-intel.nix      gpu-amd.nix      gpu-nvidia.nix
-    vm-hyperv.nix      vm-qemu.nix      vm-vmware.nix      vm-virtualbox.nix
+  hardware/             opt-in per machine
+    cpu-{intel,amd}.nix  gpu-{intel,amd,nvidia}.nix
+    vm-{hyperv,qemu,vmware,virtualbox}.nix
+    apple-silicon.nix   Asahi kernel, firmware, Mesa, 8 GiB swapfile (25.11 channel)
+    tpm-fde.nix         systemd initrd + TPM2 unlock of a LUKS2 root
+    secure-boot.nix     lanzaboote: signed UKIs, no cmdline editor, no initrd rescue shell
 
-  roles/               # opt-in by deployment shape
-    headless.nix       # greetd hypr-headless, wayvnc, hypremote, virt-1 monitor
-    desktop.nix        # normal greetd login → Hyprland
-    laptop.nix         # tlp, lid switch, brightnessctl/light, powertop
-    multi-monitor.nix  # profile.monitorsLua option → ~/.config/hypr/monitors.lua
-    gaming.nix         # steam, gamemode, gamescope, mangohud, xpadneo, bluetooth
-    gaming-kiosk.nix   # imports gaming, replaces greetd with Steam Big Picture
+  roles/                opt-in by deployment shape
+    desktop.nix         greetd/tuigreet → Hyprland; auto-login when the root is encrypted; Omarchy system layer
+    headless.nix        headless Hyprland + wayvnc on :5900
+    gaming-kiosk.nix    imports gaming; boots into Steam Big Picture under gamescope
+    gaming.nix          Steam, Proton-GE, gamescope, gamemode, controllers, Bluetooth (x86_64)
+    gaming-asahi.nix    Steam on Apple Silicon through muvm + FEX
+    laptop.nix          TLP, lid switch, backlight tools, powertop
+    multi-monitor.nix   profile.monitorsLua / monitorsConf → ~/.config/hypr/monitors.{lua,conf}
+    nas.nix             SMB automounts under /mnt/nas/<share> (added by hand, not by run.sh)
 
-  home/                # user-level, applied through home-manager
-    default.nix        # imports the others, sets home.username/homeDirectory
-    hyprland.nix       # native-Lua hyprland config (sources ~/.config/hypr/monitors.lua)
-    waybar.nix         # bespoke milkoutside powerline bar
-    desktop.nix        # kitty / rofi / swaync
-    shell.nix          # zsh + cybr starship prompt
-    neovim.nix         # neovim package + ~/.config/nvim out-of-store symlink to LazyVim
-    cli.nix            # lsd / bat / fzf / zoxide / yazi / lazygit / …
-    nixcord.nix        # Vencord via nixcord home module (gated on allowUnfree)
-    stylix.nix         # opts the bespoke modules out of Stylix theming
-    colors.nix         # milkoutside palette consts
+  home/                 user layer, through home-manager
+    hyprland.nix        Lua config (0.55, x86) or .conf (0.52, Asahi); keybinds; workspace pinning per monitor
+    quickshell/         top bar with calendar, mixer and power popups (replaces waybar.nix, kept unimported)
+    desktop.nix         kitty, rofi, swaync, hyprlock/hypridle, GUI app baseline, Tuta PWA
+    shell.nix           zsh + starship; nrs alias
+    cli.nix             lsd, bat, fzf, zoxide, yazi, lazygit, btop, …
+    neovim.nix          neovim + direnv; ~/.config/nvim → ~/dotfiles/nvim (LazyVim, out of store)
+    nixcord.nix         Discord + Vencord (x86, unfree) or Vesktop (aarch64)
+    stylix.nix          opts the hand-styled apps out of Stylix
+    colors.nix          re-exports the active Omarchy palette
+
+  omarchy/              the Omarchy port
+    home.nix            menu scripts, menu-installed packages, theme wallpaper sets
+    system.nix          Docker + menu-managed database containers
+    theme.nix           palette registry (koda-dark, vantablack) + active selection
+    dev-templates.nix   nix-templates/dev + local framework layers
+    apps.json dbs.json theme.json    state the menu edits
+    scripts/            omarchy-* shell scripts
+    themes/<name>/backgrounds/       per-theme wallpapers → ~/Wallpapers/themes/<name>
 ```
 
 ## Bootstrap
 
-On a fresh NixOS install (or any time you want to (re)configure a host):
+On a fresh NixOS install, or any time you want to reconfigure a host:
 
 ```bash
-git clone <this repo> ~/Projects/nixos
-cd ~/Projects/nixos
-./run.sh
+git clone <this repo> ~/nixos
+cd ~/nixos
+./run.sh              # --no-rebuild writes /etc/nixos but stops before activating
 ```
 
-`run.sh` is interactive and idempotent. It will:
+Keep the clone at `~/nixos`; the menu scripts expect it there.
 
-1. **Detect** CPU vendor (`/proc/cpuinfo`), GPU vendor (`lspci`),
-   virtualization (`systemd-detect-virt`), and battery presence. You confirm
-   or override each.
-2. **Ask** the deployment questions:
-   - **Hostname** and **primary username** (defaults to current values)
-   - **Session role** — `headless` (greetd boots straight into headless
-     Hyprland + wayvnc on :5900), `desktop` (normal Hyprland login), or
-     `gaming-kiosk` (auto-login into Steam Big Picture via gamescope)
-   - **Laptop power mgmt** (TLP, lid switch — suggested when a battery is
-     detected)
-   - **Multi-monitor** — writes a `profile.monitorsLua` stub you fill in after
-     first boot once you know your output names
-   - **Gaming extras** — Steam, gamemode, gamescope, mangohud, xpadneo
-     (Xbox-pad Bluetooth), Bluetooth stack
-   - **Allow proprietary software** — flips `nixpkgs.config.allowUnfree`
-3. **Generate** `/etc/nixos/flake.nix` (inputs this repo as a `path:` flake
-   input), `/etc/nixos/host.nix` (hostname + `allowUnfree`), and copies the
-   hardware config in place.
-4. **Build & switch** via `sudo nixos-rebuild switch --flake /etc/nixos#<hostname>`.
+`run.sh` is interactive and safe to re-run. It:
 
-Future rebuilds, no script needed:
+1. **Detects** the architecture (Apple Silicon via the device tree, which
+   selects the 25.11 channel), the CPU and GPU vendor, virtualization, a
+   battery, a TPM and a LUKS root. You confirm or override each.
+2. **Asks** what it can't detect: hostname, username, session role
+   (`headless` / `desktop` / `gaming-kiosk`), laptop power management,
+   multi-monitor, gaming extras (Steam on x86, muvm + FEX on Apple Silicon),
+   TPM2 disk unlock, Secure Boot, and whether to allow unfree software.
+3. **Writes** `/etc/nixos/flake.nix` (the module list), `host.nix` (kept on
+   re-runs), and copies `hardware-configuration.nix` into place.
+4. **Prepares** the user side: wallpaper, a LazyVim starter in
+   `~/dotfiles/nvim` if missing, user lingering, and Secure Boot keys (`sbctl
+   create-keys`) when Secure Boot was selected.
+5. **Builds**: `nixos-rebuild boot` + reboot on a fresh install, `switch` on
+   a reconfigure. On Apple Silicon with gaming, it builds in two stages so the
+   x86 binfmt emulation is in place before the gaming role needs it.
 
-```bash
-sudo nixos-rebuild switch --flake /etc/nixos#<hostname>
-```
+## Disk encryption and Secure Boot
 
-Re-run `./run.sh` whenever you want to change role / hardware / unfree-policy
-selection — it overwrites `/etc/nixos/{flake,host}.nix` and preserves
-`hardware-configuration.nix`.
-
-## Hardware modules
-
-| Module | What it does |
-| --- | --- |
-| `cpu-intel` / `cpu-amd` | microcode + matching KVM module |
-| `gpu-intel` | `hardware.graphics` + `intel-media-driver`, `LIBVA_DRIVER_NAME=iHD` |
-| `gpu-amd` | `hardware.graphics` + `amdvlk` + ROCm OpenCL ICD |
-| `gpu-nvidia` | proprietary driver + `nvidia-drm modeset` + Wayland env vars (`GBM_BACKEND=nvidia-drm`, …). Requires `allowUnfree`. |
-| `vm-hyperv` | Hyper-V integration services (`virtualisation.hypervGuest.enable`) |
-| `vm-qemu` | `qemuGuest` + `spice-vdagentd` (clipboard, resolution sync) |
-| `vm-vmware` | `virtualisation.vmware.guest` (open-vm-tools) |
-| `vm-virtualbox` | guest additions with drag-and-drop |
-
-## Role modules
-
-| Module | Mutex group | Notes |
-| --- | --- | --- |
-| `headless` | session | wlroots headless backend, wayvnc on :5900, `hypremote` keeps virt-1 at 1920x1080@60 across rebuilds |
-| `desktop` | session | tuigreet → `uwsm start hyprland-uwsm.desktop` |
-| `gaming-kiosk` | session | imports `gaming`, greetd auto-logs into `gamescope --steam -- steam -gamepadui` |
-| `laptop` | orthogonal | TLP, suspend-on-lid, light/brightnessctl, powertop |
-| `multi-monitor` | orthogonal | adds `profile.monitorsLua` option; main hyprland.lua sources `~/.config/hypr/monitors.lua` via `pcall(dofile,...)` |
-| `gaming` | orthogonal | steam, gamescope, gamemode, mangohud, xpadneo, Bluetooth, blueman. Steam self-gates on `allowUnfree`. |
+`secure-boot.nix` and `tpm-fde.nix` handle the declarative side. Key
+enrollment is manual on purpose, because the order matters: create keys →
+rebuild → enroll them in firmware Setup Mode (`sbctl enroll-keys
+--microsoft`) → enable Secure Boot → only then bind LUKS to TPM PCR 7 with a
+PIN (`systemd-cryptenroll --tpm2-with-pin=yes`). The header comment in each
+module has the full procedure, including suspending BitLocker on dual-boot
+disks. With an encrypted root, the desktop role skips the second login
+prompt: the LUKS passphrase or TPM PIN already guards the machine, and
+hyprlock still covers idle and suspend.
 
 ## Theming
 
-Stylix drives every supported app from one base16 palette (in
-`modules/common/stylix.nix`). The hand-tuned modules with bespoke configs
-(waybar, kitty, rofi, swaync, hyprland, neovim, starship) are excluded in
-`modules/home/stylix.nix` so Stylix doesn't fight their own configs. Nixcord
-(Vencord) is auto-themed by the Stylix nixcord target.
+Two layers, both greyscale:
+
+- **Stylix** themes everything it supports (GTK, Qt, console, cursor, bat,
+  btop, fzf, Chromium, VS Code, Vencord, …) from the base16 scheme in
+  `modules/common/stylix.nix`.
+- **The Omarchy palette** (`modules/omarchy/theme.nix`, selected in
+  `theme.json`) drives the hand-styled parts: Hyprland, kitty, rofi, swaync,
+  hyprlock, the Quickshell bar and the prompt. `modules/home/stylix.nix`
+  keeps Stylix out of those. Switch with Style › Theme.
 
 ## Notes
 
-- The bootstrap warns about conflicting choices (`allowUnfree=false` +
-  NVIDIA → falls back to nouveau; `allowUnfree=false` + gaming → Steam won't
-  install; `allowUnfree=false` + `gaming-kiosk` → kiosk session can't start).
-- SSH is key-only. The user module looks for
-  `/home/<username>/.ssh/authorized_keys` and uses it if present.
-- Passwordless sudo for the primary user.
-- The flake inputs follow the same `nixpkgs` across all of `home-manager`,
-  `stylix`, and `nixcord` so the closure is consistent.
-- `hardware-configuration.nix` is machine-specific and lives only in
-  `/etc/nixos/` — never in the repo.
+- Conflicting choices get a warning from the bootstrap: without unfree
+  software, NVIDIA falls back to nouveau and Steam or the kiosk won't install.
+- SSH is key-only; `~/.ssh/authorized_keys` is used if present.
+- Tailscale is on everywhere; run `sudo tailscale up` once per host.
+- `hardware-configuration.nix`, `host.nix`, `/etc/nas-credentials` and the
+  Secure Boot keys in `/var/lib/sbctl` are per machine and never in the repo.
