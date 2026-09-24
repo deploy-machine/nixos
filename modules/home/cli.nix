@@ -110,6 +110,12 @@ in
     onefetch   # onefetch : git-repo summary art (run inside a repo)
     tealdeer   # tldr     : concise, example-first man pages
     delta      # delta    : syntax-highlighted git diffs    (wire into git, see notes)
+  ] ++ lib.optionals (lib.versionOlder lib.trivial.release "26.05") [
+    # neofetch : classic system-info banner. Removed from nixpkgs in 26.05
+    # (unmaintained upstream — the removal is a hard eval error, so this must
+    # stay channel-gated). Only the 25.11/Asahi host still gets it; on 26.05
+    # hosts use fastfetch or hyfetch's neowofetch instead.
+    neofetch
   ];
 
   home.shellAliases = {
