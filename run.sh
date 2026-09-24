@@ -189,6 +189,23 @@ else
   vm_choice="$(ask_choice "Select VM guest-tools module:" "$vm_detected" hyperv qemu vmware virtualbox none)"
 fi
 
+# TPM2-backed LUKS unlock (x86 only — Apple Silicon has no TPM). Default to
+# y when the machine has a TPM and the running system already sits on
+# dm-crypt; the module is inert-but-useless without a LUKS root.
+tpm_fde=n
+if [ "$apple_silicon" != "y" ]; then
+  tpm_default=n
+  if [ -e /sys/class/tpm/tpm0 ] && lsblk -rno TYPE 2>/dev/null | grep -q '^crypt$'; then
+    tpm_default=y
+  fi
+  if [ ! -e /sys/class/tpm/tpm0 ]; then
+    echo "  TPM        : none detected (/sys/class/tpm/tpm0 missing)"
+  fi
+  if ask_yn "TPM2-backed LUKS unlock (needs LUKS root; enroll post-boot, see modules/hardware/tpm-fde.nix)?" "$tpm_default"; then
+    tpm_fde=y
+  fi
+fi
+
 # --- 2. deployment questions ------------------------------------------------
 echo
 bold "Deployment"
@@ -276,6 +293,7 @@ cat <<EOF
   CPU module      $cpu_choice
   GPU module      $gpu_choice
   VM module       $vm_choice
+  TPM FDE         $tpm_fde
   session role    $role
   laptop          $laptop
   multi-monitor   $multi_monitor
@@ -351,6 +369,7 @@ modules=(
 [ "$gpu_choice" != "none" ] && modules+=("config-repo.nixosModules.hardware.gpu-$gpu_choice")
 [ "$vm_choice"  != "none" ] && modules+=("config-repo.nixosModules.hardware.vm-$vm_choice")
 [ "$apple_silicon" = "y" ] && modules+=("config-repo.nixosModules.hardware.apple-silicon")
+[ "$tpm_fde"       = "y" ] && modules+=("config-repo.nixosModules.hardware.tpm-fde")
 modules+=("config-repo.nixosModules.roles.$role")
 [ "$laptop"        = "y" ] && modules+=("config-repo.nixosModules.roles.laptop")
 [ "$multi_monitor" = "y" ] && modules+=("config-repo.nixosModules.roles.multi-monitor")

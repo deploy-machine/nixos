@@ -151,6 +151,7 @@
           vm-vmware     = ./modules/hardware/vm-vmware.nix;
           vm-virtualbox = ./modules/hardware/vm-virtualbox.nix;
           apple-silicon = ./modules/hardware/apple-silicon.nix;
+          tpm-fde       = ./modules/hardware/tpm-fde.nix;
         };
         roles = {
           headless      = ./modules/roles/headless.nix;
