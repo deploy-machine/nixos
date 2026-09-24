@@ -341,10 +341,12 @@ let
     bind = $mainMod,       right, movefocus, r
     bind = $mainMod,          up, movefocus, u
     bind = $mainMod,        down, movefocus, d
-    bind = $mainMod SHIFT,  left, swapwindow, l
-    bind = $mainMod SHIFT, right, swapwindow, r
-    bind = $mainMod SHIFT,    up, swapwindow, u
-    bind = $mainMod SHIFT,  down, swapwindow, d
+    # movewindow (not swapwindow) so a window at the screen edge crosses to
+    # the next/previous monitor.
+    bind = $mainMod SHIFT,  left, movewindow, l
+    bind = $mainMod SHIFT, right, movewindow, r
+    bind = $mainMod SHIFT,    up, movewindow, u
+    bind = $mainMod SHIFT,  down, movewindow, d
 
     # Workspaces 1-10 (0 = ws 10), globally numbered, pinned to monitors by
     # the pin script in autostart. SHIFT moves + follows, SHIFT+ALT moves
@@ -550,16 +552,26 @@ let
                     persistent = true,
                     default    = (w == list[1]),
                 })
+                -- Rules only apply at creation, so move any workspace that
+                -- was already created on the wrong monitor (e.g. during boot,
+                -- before positions from monitors.lua were applied).
+                local ws = hl.get_workspace(tostring(w))
+                if ws and ws.monitor and ws.monitor.name ~= mon.name then
+                    hl.dispatch(hl.dsp.workspace.move({ workspace = tostring(w), monitor = mon.name }))
+                end
             end
         end
     end
 
     -- Call inline so `hyprctl reload` re-pins immediately (monitors are already
     -- up). The event hooks below cover cold boot (monitors come up after the
-    -- config parses) and hot-plug.
+    -- config parses) and hot-plug. monitor.added fires before the output's
+    -- configured position is applied (it still reads x=0), so also re-pin on
+    -- layout_changed once positions have settled.
     autoPinWorkspaces()
-    hl.on("monitor.added",   autoPinWorkspaces)
-    hl.on("monitor.removed", autoPinWorkspaces)
+    hl.on("monitor.added",          autoPinWorkspaces)
+    hl.on("monitor.removed",        autoPinWorkspaces)
+    hl.on("monitor.layout_changed", autoPinWorkspaces)
 
     ------------------------------------------------------------------- ENV VARS
     hl.env("XCURSOR_SIZE", "24")
@@ -739,7 +751,8 @@ let
     -- Focus / swap with arrows.
     for key, dir in pairs({ LEFT = "l", RIGHT = "r", UP = "u", DOWN = "d" }) do
         bind(mainMod .. " + " .. key,            "Focus " .. dir, hl.dsp.focus({ direction = dir }))
-        bind(mainMod .. " + SHIFT + " .. key,    "Swap "  .. dir, hl.dsp.window.swap({ direction = dir }))
+        -- move (not swap) so a window at the screen edge crosses monitors.
+        bind(mainMod .. " + SHIFT + " .. key,    "Move window " .. dir, hl.dsp.window.move({ direction = dir }))
         bind(mainMod .. " + SHIFT + ALT + " .. key, "Move workspace to monitor " .. dir, hl.dsp.workspace.move({ monitor = dir }))
         bind(mainMod .. " + ALT + " .. key,      "Move window into group " .. dir, hl.dsp.window.move({ into_group = dir }))
     end
@@ -852,7 +865,7 @@ let
         name  = "omarchy-floating-terminal",
         match = { class = "^Omarchy-float$" },
         float = true,
-        size  = { width = "60%", height = "70%" },
+        size  = { "60%", "70%" },
         center = true,
     })
     -- translucent kitty is handled by kitty's own background_opacity (desktop.nix)
