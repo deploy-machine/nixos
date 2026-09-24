@@ -45,6 +45,14 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Secure Boot for NixOS: signs a UKI per generation with your own keys
+    # (sbctl) and replaces systemd-boot's installer. Only pulled in by hosts
+    # that import nixosModules.hardware.secure-boot (x86_64 on 26.05).
+    lanzaboote = {
+      url = "github:nix-community/lanzaboote/v1.1.0";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Apple Silicon (M1/M2/M3) support: kernel, m1n1/u-boot, peripheral
     # firmware extraction, Asahi Mesa stack. Only pulled in by hosts that
     # import nixosModules.hardware.apple-silicon. Follows nixpkgs-25-11 so
@@ -152,6 +160,7 @@
           vm-virtualbox = ./modules/hardware/vm-virtualbox.nix;
           apple-silicon = ./modules/hardware/apple-silicon.nix;
           tpm-fde       = ./modules/hardware/tpm-fde.nix;
+          secure-boot   = ./modules/hardware/secure-boot.nix;
         };
         roles = {
           headless      = ./modules/roles/headless.nix;

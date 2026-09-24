@@ -206,6 +206,17 @@ if [ "$apple_silicon" != "y" ]; then
   fi
 fi
 
+# Secure Boot with our own keys via lanzaboote (x86 UEFI only). Defaults to
+# y alongside TPM FDE: a PCR 7 seal means little while Secure Boot is off.
+# Key *enrollment* stays manual (firmware Setup Mode, BitLocker suspend) —
+# see modules/hardware/secure-boot.nix.
+secure_boot=n
+if [ "$apple_silicon" != "y" ] && [ -d /sys/firmware/efi ]; then
+  if ask_yn "Secure Boot via lanzaboote (keys created now; enroll manually, see modules/hardware/secure-boot.nix)?" "$tpm_fde"; then
+    secure_boot=y
+  fi
+fi
+
 # --- 2. deployment questions ------------------------------------------------
 echo
 bold "Deployment"
@@ -294,6 +305,7 @@ cat <<EOF
   GPU module      $gpu_choice
   VM module       $vm_choice
   TPM FDE         $tpm_fde
+  Secure Boot     $secure_boot
   session role    $role
   laptop          $laptop
   multi-monitor   $multi_monitor
@@ -370,6 +382,7 @@ modules=(
 [ "$vm_choice"  != "none" ] && modules+=("config-repo.nixosModules.hardware.vm-$vm_choice")
 [ "$apple_silicon" = "y" ] && modules+=("config-repo.nixosModules.hardware.apple-silicon")
 [ "$tpm_fde"       = "y" ] && modules+=("config-repo.nixosModules.hardware.tpm-fde")
+[ "$secure_boot"   = "y" ] && modules+=("config-repo.nixosModules.hardware.secure-boot")
 modules+=("config-repo.nixosModules.roles.$role")
 [ "$laptop"        = "y" ] && modules+=("config-repo.nixosModules.roles.laptop")
 [ "$multi_monitor" = "y" ] && modules+=("config-repo.nixosModules.roles.multi-monitor")
@@ -435,6 +448,16 @@ fi
 # persists this — we run it here so the very first switch already benefits.
 ok "Enabling user lingering for $username so home-manager has a live DBus session ..."
 sudo loginctl enable-linger "$username"
+
+# --- 10b. Secure Boot signing keys -----------------------------------------
+# lanzaboote signs every generation during the rebuild and fails without a
+# key pair, so create one first. Idempotent: existing keys are never touched
+# (regenerating them would orphan whatever the firmware has enrolled).
+if [ "$secure_boot" = "y" ] && ! sudo test -d /var/lib/sbctl/keys; then
+  ok "Creating Secure Boot keys in /var/lib/sbctl ..."
+  sudo nix --extra-experimental-features "nix-command flakes" \
+    shell nixpkgs#sbctl -c sbctl create-keys
+fi
 
 # --- 11. refresh the config-repo lock entry --------------------------------
 # /etc/nixos/flake.nix pins this repo as `path:$REPO_DIR`. nix locks path inputs

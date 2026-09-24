@@ -12,11 +12,14 @@
 #      nixos-generate-config detects the opened LUKS device and writes the
 #      boot.initrd.luks.devices entry into hardware-configuration.nix itself.
 #
-#   2. After first boot, bind the volume to the TPM — with a PIN, so a
-#      desk-visitor can't just power the machine on and get to a login
-#      screen (TPM anti-hammering makes brute-forcing the PIN infeasible):
+#   2. After Secure Boot is enforcing with your own keys (secure-boot.nix),
+#      bind the volume to the TPM — with a PIN, so a desk-visitor can't just
+#      power the machine on and get to a login screen (TPM anti-hammering
+#      makes brute-forcing the PIN infeasible):
 #        sudo systemd-cryptenroll /dev/nvmeXnYpZ \
 #          --tpm2-device=auto --tpm2-pcrs=7 --tpm2-with-pin=yes
+#      Enrolling before Secure Boot is on seals to the wrong PCR 7 value;
+#      re-enroll with --wipe-slot=tpm2 added if that happened.
 #
 #   3. Keep the original passphrase (keyslot 0) as the recovery path, and
 #      back up the header off-machine:
@@ -24,10 +27,17 @@
 #          --header-backup-file luks-header.img
 #
 # PCR 7 measures the Secure Boot policy, so the seal is only meaningful with
-# Secure Boot ON and the kernel signed with your own keys (lanzaboote +
-# sbctl). Until that lands, TPM+PIN still beats passphrase-only ergonomics,
-# but an attacker who can boot their own OS can attempt the unseal (the PIN
-# still stops them).
+# Secure Boot ON and the kernel signed with your own keys — import
+# hardware.secure-boot alongside this module. Then only UKIs you signed can
+# unseal; anything else (live USB, tampered initrd, SB disabled) changes
+# PCR 7 and the TPM refuses.
+#
+# Why the PIN is not optional against a physical attacker: PCR 7 only says
+# "a kernel signed by you booted". It does not prove the disk is yours — an
+# attacker can swap in a LUKS volume they control, let your signed initrd
+# boot *their* root, and ask the TPM for your key from there (the
+# "filesystem confusion" attack). With --tpm2-with-pin the unseal also
+# needs the PIN, which they don't have and can't hammer.
 #
 # Dual-boot with Windows/BitLocker on the same machine:
 #   - Enroll custom Secure Boot keys ALONGSIDE Microsoft's, never instead of
@@ -59,6 +69,8 @@
 
   environment.systemPackages = [
     pkgs.tpm2-tools # tpm2_pcrread etc. — inspect PCR state when debugging seals
-    pkgs.sbctl      # Secure Boot key management, pairs with a future lanzaboote setup
   ];
+
+  warnings = lib.optional (!(config.boot.lanzaboote.enable or false))
+    "hardware.tpm-fde without hardware.secure-boot: a PCR 7 seal is only meaningful with Secure Boot enforcing your own keys. Import nixosModules.hardware.secure-boot too.";
 }
