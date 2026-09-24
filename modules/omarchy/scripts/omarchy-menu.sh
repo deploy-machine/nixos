@@ -12,6 +12,12 @@ menu() {
 
 term() { omarchy-floating-term "$@"; }
 
+# Nerd Font glyph from its codepoint. Private-use BMP glyphs are spelled as
+# escapes: as literal characters they get dropped by some tools and the
+# menu entry loses its icon.
+# shellcheck disable=SC2059
+g() { printf "\\u$1"; }
+
 edit_in_term() {
   kitty --class=Omarchy-float --title=Omarchy --directory "$OMARCHY_REPO" -e "${EDITOR:-nvim}" "$@" &
 }
@@ -20,14 +26,14 @@ main_menu() {
   case $(menu "Omarchy" \
     "󰀻  Apps" \
     "󱓞  Trigger" \
-    "  Style" \
-    "  Setup" \
+    "$(g f1fc)  Style" \
+    "$(g f013)  Setup" \
     "󰉉  Install" \
     "󰭌  Remove" \
-    "  Update" \
+    "$(g f021)  Update" \
     "󰧑  Learn" \
-    "  About" \
-    "  System") in
+    "$(g f05a)  About" \
+    "$(g f011)  System") in
   *Apps*) rofi -show drun -show-icons ;;
   *Trigger*) trigger_menu ;;
   *Style*) style_menu ;;
@@ -43,10 +49,10 @@ main_menu() {
 
 trigger_menu() {
   case $(menu "Trigger" \
-    "  Capture" \
+    "$(g f030)  Capture" \
     "󰔎  Toggle" \
     "󰅍  Clipboard history" \
-    "  Emoji picker" \
+    "$(g f118)  Emoji picker" \
     "󰁍  Back") in
   *Capture*) capture_menu ;;
   *Toggle*) toggle_menu ;;
@@ -58,10 +64,10 @@ trigger_menu() {
 
 capture_menu() {
   case $(menu "Capture" \
-    "  Screenshot region" \
-    "  Screenshot window" \
-    "  Screenshot screen" \
-    "  Screenrecord (toggle)" \
+    "$(g f030)  Screenshot region" \
+    "$(g f030)  Screenshot window" \
+    "$(g f030)  Screenshot screen" \
+    "$(g f03d)  Screenrecord (toggle)" \
     "󰴑  Text (OCR)" \
     "󰐲  QR code" \
     "󰃉  Color picker" \
@@ -90,7 +96,7 @@ toggle_menu() {
     "$night" \
     "$silence" \
     "󰍜  Bar" \
-    "  Window gaps" \
+    "$(g f0db)  Window gaps" \
     "󰂵  Window transparency" \
     "󱂬  Workspace layout" \
     "󰁍  Back") in
@@ -111,9 +117,9 @@ style_menu() {
   # full set plus local ones in modules/omarchy/themes/ (colors.toml format).
   case $(menu "Style" \
     "󰸌  Theme" \
-    "  Background" \
-    "  Edit local themes" \
-    "  Edit Hyprland look" \
+    "$(g f03e)  Background" \
+    "$(g f040)  Edit local themes" \
+    "$(g f040)  Edit Hyprland look" \
     "󰁍  Back") in
   *Theme*) omarchy-theme-set ;;
   *Background*) omarchy-wallpaper ;;
@@ -127,10 +133,10 @@ setup_menu() {
   case $(menu "Setup" \
     "󰤨  Wi-Fi" \
     "󰂯  Bluetooth" \
-    "  Audio" \
+    "$(g f028)  Audio" \
     "󰍹  Monitors (repo module)" \
-    "  Keybindings (hyprland.nix)" \
-    "  Config repo (editor)" \
+    "$(g f11c)  Keybindings (hyprland.nix)" \
+    "$(g f121)  Config repo (editor)" \
     "󰊢  Config repo (lazygit)" \
     "󰁍  Back") in
   *Wi-Fi*) networkmanager_dmenu ;;
@@ -147,10 +153,10 @@ setup_menu() {
 install_menu() {
   case $(menu "Install" \
     "󰏖  Package (nixpkgs → flake)" \
-    "  Web App" \
-    "  TUI" \
+    "$(g f0ac)  Web App" \
+    "$(g f489)  TUI" \
     "󰵮  Development environment" \
-    "  Docker database" \
+    "$(g f308)  Docker database" \
     "󰁍  Back") in
   *Package*) term omarchy-pkg-install ;;
   *Web*) omarchy-webapp-install ;;
@@ -166,13 +172,13 @@ dev_menu() {
   # name<TAB>description); rofi's filter searches both columns.
   local choice
   choice=$({
-    awk -F'\t' '{ printf "%-15s %s\n", $1, $2 }' "$OMARCHY_DEV_TEMPLATES/index.tsv"
+    awk -F'\t' -v icon="$(g f121)" '{ printf "%s  %-15s %s\n", icon, $1, $2 }' "$OMARCHY_DEV_TEMPLATES/index.tsv"
     echo "󰁍  Back"
   } | rofi -dmenu -i -p "New project") || true
   case "$choice" in
   "") ;;
   *Back) install_menu ;;
-  *) term omarchy-dev-env "${choice%% *}" ;;
+  *) choice="${choice#*  }"; term omarchy-dev-env "${choice%% *}" ;;
   esac
 }
 
@@ -184,15 +190,15 @@ db_menu() {
     fi
   }
   local mssql_label
-  mssql_label="  MSSQL$(mark mssql)"
-  [ "$(uname -m)" != "x86_64" ] && mssql_label="  MSSQL (x86 only)"
+  mssql_label="$(g f1c0)  MSSQL$(mark mssql)"
+  [ "$(uname -m)" != "x86_64" ] && mssql_label="$(g f1c0)  MSSQL (x86 only)"
 
   case $(menu "Docker DB (toggle)" \
-    "  PostgreSQL$(mark postgres)" \
-    "  MySQL$(mark mysql)" \
-    "  MariaDB$(mark mariadb)" \
-    "  Redis$(mark redis)" \
-    "  MongoDB$(mark mongodb)" \
+    "$(g f1c0)  PostgreSQL$(mark postgres)" \
+    "$(g f1c0)  MySQL$(mark mysql)" \
+    "$(g f1c0)  MariaDB$(mark mariadb)" \
+    "$(g f1c0)  Redis$(mark redis)" \
+    "$(g f1c0)  MongoDB$(mark mongodb)" \
     "$mssql_label" \
     "󰁍  Back") in
   *PostgreSQL*) term omarchy-docker-db toggle postgres ;;
@@ -208,9 +214,9 @@ db_menu() {
 remove_menu() {
   case $(menu "Remove" \
     "󰏖  Package" \
-    "  Web App" \
-    "  TUI" \
-    "  Docker database" \
+    "$(g f0ac)  Web App" \
+    "$(g f489)  TUI" \
+    "$(g f308)  Docker database" \
     "󰁍  Back") in
   *Package*) term omarchy-pkg-remove ;;
   *Web*) omarchy-webapp-remove ;;
@@ -222,7 +228,7 @@ remove_menu() {
 
 update_menu() {
   case $(menu "Update" \
-    "  Rebuild system (apply config)" \
+    "$(g f021)  Rebuild system (apply config)" \
     "󰚰  Bump flake inputs + rebuild" \
     "󰕌  Rollback to previous generation" \
     "󰃢  Garbage collect" \
@@ -237,11 +243,11 @@ update_menu() {
 
 learn_menu() {
   case $(menu "Learn" \
-    "  Keybindings" \
-    "  NixOS manual" \
+    "$(g f11c)  Keybindings" \
+    "$(g f313)  NixOS manual" \
     "󰏖  Nixpkgs search" \
-    "  Home Manager options" \
-    "  Hyprland wiki" \
+    "$(g f015)  Home Manager options" \
+    "$(g f02d)  Hyprland wiki" \
     "󰁍  Back") in
   *Keybindings*) omarchy-menu-keybindings ;;
   *manual*) omarchy-launch-webapp "https://nixos.org/manual/nixos/stable/" ;;
@@ -254,7 +260,7 @@ learn_menu() {
 
 system_menu() {
   case $(menu "System" \
-    "  Lock" \
+    "$(g f023)  Lock" \
     "󰒲  Suspend" \
     "󰍃  Logout" \
     "󰑓  Restart Hyprland" \

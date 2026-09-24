@@ -1,10 +1,15 @@
 { config, lib, pkgs, inputs, ... }:
 let
   c = import ./colors.nix inputs;
-  # Default background follows the active theme (modules/omarchy/theme.nix);
-  # background sets are deployed to ~/Wallpapers/themes/<name>/ by
-  # modules/omarchy/home.nix. omarchy-wallpaper switches within the set.
+  # Default background follows the active theme (modules/omarchy/theme.nix),
+  # through ~/.local/state/omarchy/current/theme. Only painted here without
+  # the Omarchy shell; the shell draws the wallpaper itself.
   wallpaper = "${config.home.homeDirectory}/${(import ../omarchy/theme.nix inputs).wallpaper}";
+
+  # Omarchy's Quickshell shell (modules/omarchy/home.nix): the Lua config
+  # loads Omarchy's own keybind / window-rule / toggle modules from it.
+  omarchyShell = config.omarchy.shell.enable;
+  omarchyPath = "${config.home.homeDirectory}/.local/share/omarchy";
 
   # 26.05 renamed swww → awww; 25.11 still ships swww. The CLIs are
   # identical (`<bin> img <path>`, `<bin>-daemon`) so the autostart lines
@@ -493,17 +498,52 @@ let
     local terminal    = "kitty"
     local fileManager = "thunar"
     local menu        = "rofi -show drun -show-icons"
+    ${lib.optionalString omarchyShell ''
+
+    ------------------------------------------------------------ OMARCHY MODULES
+    -- Load Omarchy's own Hyprland Lua modules (OMARCHY_PATH = the omarchy
+    -- package, modules/omarchy/home.nix): the o.* helpers, app window rules
+    -- (terminal tag, floating Omarchy windows, shell layer rules), the
+    -- window toggles in ~/.local/state/omarchy/toggles/hypr, and Omarchy's
+    -- utility / clipboard / media keybinds further down.
+    local home = os.getenv("HOME")
+    -- Re-run Omarchy's modules on every `hyprctl reload`, as its bootstrap does.
+    for module in pairs(package.loaded) do
+      if module:find("^default%.hypr") or module:find("^omarchy%.") then
+        package.loaded[module] = nil
+      end
+    end
+    package.path = home .. "/.local/state/?.lua;"
+      .. "${omarchyPath}/?.lua;"
+      .. package.path
+    -- paths.lua falls back to /usr/share/omarchy when OMARCHY_PATH isn't in
+    -- Hyprland's environment; hand it the real locations.
+    package.loaded["default.hypr.paths"] = {
+      home = home,
+      config_home = home .. "/.config",
+      state_home = home .. "/.local/state",
+      omarchy_path = "${omarchyPath}",
+    }
+    hl.env("OMARCHY_PATH", "${omarchyPath}")
+    require("default.hypr.helpers")
+    require("default.hypr.apps")
+    ''}
 
     ----------------------------------------------------------------- AUTOSTART
     hl.on("hyprland.start", function ()
+      ${if omarchyShell then ''
+      -- The Omarchy shell (bar, panels, notifications, wallpaper, …) runs
+      -- as the omarchy-shell systemd user service.
+      '' else ''
       hl.exec_cmd("${wallpaperBin}-daemon")
       hl.exec_cmd("${wallpaperScript}/bin/hypr-wallpaper")
       hl.exec_cmd("nm-applet --indicator")
+      ''}
       hl.exec_cmd("sleep 6 && systemctl --user start wayvnc.service")
     end)
-    -- waybar + swaync are started by their home-manager systemd user services
-    -- (wantedBy = graphical-session.target). Don't also exec them here, that
-    -- caused 4-bars-on-2-monitors (one set per spawn × per monitor).
+    -- The bar and notifications are started by their home-manager systemd
+    -- user services (wantedBy = graphical-session.target). Don't also exec
+    -- them here, that caused 4-bars-on-2-monitors (one per spawn × monitor).
 
     ------------------------------------------------------------------- MONITORS
     -- Per-host monitor layout (written by modules/roles/multi-monitor.nix).
@@ -725,6 +765,19 @@ let
     bind(mainMod .. " + SHIFT + G",           "Discord",            run("${discordBin}"))
     bind(mainMod .. " + SHIFT + O",           "Obsidian",           run("obsidian"))
     bind(mainMod .. " + SHIFT + SLASH",       "Passwords",          run("bitwarden"))
+    ${if omarchyShell then ''
+    -- Omarchy's utility / clipboard / media binds: menu, launcher, emoji,
+    -- capture, notifications, toggles, the shell's dropdown panels (audio
+    -- SUPER+CTRL+A, bluetooth +B, display +D, network +W, power & stats +P,
+    -- calendar +ALT+D), clipboard manager, zoom, lock, media keys with OSD.
+    require("default.hypr.bindings.utilities")
+    require("default.hypr.bindings.clipboard")
+    require("default.hypr.bindings.media")
+    -- The active theme's Hyprland colors (Omarchy's per-theme borders).
+    pcall(require, "omarchy.current.theme.hyprland")
+    -- Window toggles (gaps, transparency, 1-window ratio, workspace layouts).
+    require("default.hypr.toggles")
+    '' else ''
     bind(mainMod .. " + CTRL + T",            "Activity (btop)",    run("kitty -e btop"))
     bind(mainMod .. " + CTRL + A",            "Audio mixer",        run("pavucontrol"))
     bind(mainMod .. " + CTRL + B",            "Bluetooth",          run("blueman-manager"))
@@ -757,6 +810,7 @@ let
     bind(mainMod .. " + CTRL + ALT + T",      "Show time",    run("omarchy-notification time"))
     bind(mainMod .. " + CTRL + ALT + B",      "Show battery", run("omarchy-notification battery"))
     bind(mainMod .. " + CTRL + ALT + W",      "Show weather", run("omarchy-notification weather"))
+    ''}
 
     -- Window management (omarchy bindings/tiling.lua)
     bind(mainMod .. " + W",                   "Close window",        hl.dsp.window.close())
@@ -767,7 +821,7 @@ let
     bind(mainMod .. " + F",                   "Full screen",         hl.dsp.window.fullscreen({ mode = "fullscreen" }))
     bind(mainMod .. " + ALT + F",             "Full width",          hl.dsp.window.fullscreen({ mode = "maximized" }))
     bind(mainMod .. " + O",                   "Pop window out (float & pin)", run('hyprctl --batch "dispatch togglefloating ; dispatch pin"'))
-    bind(mainMod .. " + L",                   "Toggle workspace layout",      run("omarchy-toggle layout"))
+    bind(mainMod .. " + L",                   "Toggle workspace layout",      run("${if omarchyShell then "omarchy-hyprland-workspace-layout-toggle" else "omarchy-toggle layout"}"))
 
     -- Focus / swap with arrows.
     for key, dir in pairs({ LEFT = "l", RIGHT = "r", UP = "u", DOWN = "d" }) do
@@ -832,6 +886,7 @@ let
     hl.bind(mainMod .. " + mouse:272", hl.dsp.window.drag(),   { mouse = true })
     hl.bind(mainMod .. " + mouse:273", hl.dsp.window.resize(), { mouse = true })
 
+    ${lib.optionalString (!omarchyShell) ''
     -- Universal clipboard (omarchy bindings/clipboard.lua): SUPER+C/V/X work
     -- everywhere; kitty gets CTRL+SHIFT translated by the script.
     bind(mainMod .. " + C",                   "Universal copy",     run("omarchy-clipboard copy"))
@@ -867,6 +922,7 @@ let
     hl.bind("XF86AudioPause", run("playerctl play-pause"), { locked = true })
     hl.bind("XF86AudioPlay",  run("playerctl play-pause"), { locked = true })
     hl.bind("XF86AudioPrev",  run("playerctl previous"),   { locked = true })
+    ''}
 
     ----------------------------------------------------------------- WINDOW RULES
     hl.window_rule({

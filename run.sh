@@ -413,9 +413,9 @@ if [ ! -d "$INVOKING_HOME/dotfiles/nvim" ]; then
   run_as_user mkdir -p "$INVOKING_HOME/dotfiles/nvim/lua/plugins"
 
   # Colorscheme follows the active Omarchy theme (modules/omarchy/theme.nix
-  # links its directory to ~/.config/omarchy/current/theme).
+  # links its directory to ~/.local/state/omarchy/current/theme).
   run_as_user tee "$INVOKING_HOME/dotfiles/nvim/lua/plugins/colorscheme.lua" >/dev/null << 'LUA'
-local theme = vim.fn.expand("~/.config/omarchy/current/theme/neovim.lua")
+local theme = vim.fn.expand("~/.local/state/omarchy/current/theme/neovim.lua")
 if vim.fn.filereadable(theme) == 1 then
   return dofile(theme)
 end

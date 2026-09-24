@@ -14,11 +14,11 @@ screenshot)
 record)
   if pgrep -x wf-recorder >/dev/null; then
     pkill -SIGINT -x wf-recorder
-    notify-send -a Omarchy -e "  Recording stopped" "Saved to ~/Videos"
+    notify-send -a Omarchy -e "$(printf '\uf03d')  Recording stopped" "Saved to ~/Videos"
   else
     mkdir -p "$HOME/Videos"
     out="$HOME/Videos/$(date +%F-%H%M%S).mp4"
-    notify-send -a Omarchy -e -t 2000 "  Recording started" "Run again to stop"
+    notify-send -a Omarchy -e -t 2000 "$(printf '\uf03d')  Recording started" "Run again to stop"
     exec wf-recorder -f "$out"
   fi
   ;;

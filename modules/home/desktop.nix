@@ -3,6 +3,11 @@ let
   c = import ./colors.nix inputs;
   allowUnfree = pkgs.config.allowUnfree or false;
 
+  # Omarchy's shell (modules/omarchy/home.nix) brings its own notifications,
+  # lock screen, idle handling, polkit agent, clipboard history, bluetooth
+  # panel and nightlight control; these daemons only run without it.
+  omarchyShell = config.omarchy.shell.enable;
+
   # Tuta Mail PWA. Tuta upstream ships only an x86_64 Electron AppImage, and
   # running it through muvm+FEX on Asahi hits an early Chromium dbus abort
   # inside the microVM that no amount of --no-sandbox / dbus-daemon
@@ -130,7 +135,7 @@ in
   # password". Without this, requests from Thunar to mount a drive come back
   # as "not authorized" because polkit can't reach a user-facing agent.
   # Started by uwsm via graphical-session.target.
-  systemd.user.services.hyprpolkitagent = {
+  systemd.user.services.hyprpolkitagent = lib.mkIf (!omarchyShell) {
     Unit = {
       Description = "Hyprland polkit authentication agent";
       PartOf = [ "graphical-session.target" ];
@@ -220,7 +225,7 @@ in
 
   # ---------------- swaync (replaces dunst; cybr-style) ----------------
   services.swaync = {
-    enable = true;
+    enable = !omarchyShell;
     settings = {
       positionX = "right";
       positionY = "top";
@@ -275,7 +280,7 @@ in
   # the theme palette: accent outline around the input field, big
   # JetBrains-style clock on top.
   programs.hyprlock = {
-    enable = true;
+    enable = !omarchyShell;
     settings = {
       general = {
         hide_cursor         = true;
@@ -345,7 +350,7 @@ in
   # before_sleep_cmd ensures we lock *before* suspending so resuming a
   # closed laptop / desktop wake doesn't briefly show the unlocked session.
   services.hypridle = {
-    enable = true;
+    enable = !omarchyShell;
     settings = {
       general = {
         lock_cmd         = "pidof hyprlock || hyprlock";
@@ -366,18 +371,18 @@ in
   # this is the user-facing tray applet that surfaces pairing requests and
   # device toggles. Without it, the bluetoothd daemon runs but you have no
   # GUI handle on it from Hyprland.
-  services.blueman-applet.enable = true;
+  services.blueman-applet.enable = !omarchyShell;
 
   # ---------------- cliphist (clipboard history) ----------------
   # wl-paste --watch cliphist store runs as a user service. Recall via
   # ALT+SHIFT+V (piped through rofi in hyprland.nix).
-  services.cliphist.enable = true;
+  services.cliphist.enable = !omarchyShell;
 
   # ---------------- hyprsunset (blue-light filter) ----------------
   # Fixed warm temperature all day. Simpler than day/night transitions and
   # easy on the eyes; switch to settings.profile if you want it adaptive.
   services.hyprsunset = {
-    enable = true;
+    enable = !omarchyShell;
     extraArgs = [ "-t" "4500" ];
   };
 

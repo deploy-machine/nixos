@@ -53,46 +53,79 @@ sudo sh -c 'nix flake update config-repo --flake /etc/nixos && nixos-rebuild swi
 
 ## The Omarchy layer
 
-`modules/omarchy/` plus the Hyprland keybinds in `modules/home/hyprland.nix`.
-Every script is a `writeShellApplication` on `PATH` with its dependencies
-pinned, and knows the repo location through `$OMARCHY_REPO`.
+Omarchy itself is a pinned flake input (`omarchy`, upstream's newest
+branch). `modules/omarchy/package.nix` packages it for NixOS: the
+Quickshell shell, all ~460 `omarchy-*` commands, the default configs,
+templates and themes, with shebangs patched. `OMARCHY_PATH` is
+`~/.local/share/omarchy`, a stable link to that package.
+
+### The shell
+
+Omarchy's own Quickshell desktop shell runs unchanged, as the
+`omarchy-shell` systemd user service (Quickshell 0.3.1 from
+nixos-unstable). It provides:
+
+- the **bar**, with **dropdown panels** for network/Wi-Fi, Bluetooth,
+  audio (outputs, inputs, streams), display, power (with CPU and memory
+  stats), calendar, weather and Tailscale
+- the **Omarchy menu** (SUPER+SPACE) and app launcher (SUPER+ALT+SPACE)
+- notifications, OSD, lock screen, idle handling, polkit agent,
+  clipboard history, emoji picker and wallpaper
+
+It replaces swaync, hyprlock, hypridle, hyprpolkitagent, cliphist, the
+blueman applet and the hyprsunset service, which only run when
+`omarchy.shell.enable` is off. The shell needs Hyprland's Lua config API
+(0.55+), so it's on by default everywhere except Apple Silicon, whose
+25.11 Hyprland 0.52 keeps the rofi menu and the bar in
+`modules/home/quickshell/`.
+
+The Hyprland Lua config loads Omarchy's own modules: its utility,
+clipboard and media keybinds, app window rules, window toggles (gaps,
+transparency, single-window ratio, workspace layout) and the active
+theme's border colours. The tiling, workspace and app keybinds stay in
+`modules/home/hyprland.nix`. SUPER+K lists every bind, read live from
+Hyprland.
 
 ### Omarchy → NixOS
 
+Commands that change the system are replaced with declarative versions
+(`modules/omarchy/nixos-bin/`), installed over upstream's so each name
+exists once. Each one edits a JSON file in this repo and rebuilds:
+
 | Omarchy (Arch) | Here |
 | --- | --- |
-| `omarchy-pkg-install` → `pacman -S` | Search nixpkgs (fzf), append the attribute to `modules/omarchy/apps.json`, rebuild. Unknown names are skipped with a warning, so a typo can't break a rebuild. |
-| `omarchy-install-dev-env` → `mise use --global` | Pick one of ~70 [nix-templates/dev](https://github.com/nix-templates/dev) templates and scaffold a **per-project** devShell with direnv (see below) |
-| `omarchy-install-docker-dbs` → `docker run` | Toggle PostgreSQL / MySQL / MariaDB / Redis / MongoDB / MSSQL in `dbs.json`; each becomes a `virtualisation.oci-containers` systemd unit bound to localhost |
-| `omarchy-theme-switcher` / `omarchy-theme-set` | Same themes, same `~/.config/omarchy/themes` + `current/theme` layout; the pick is written to `theme.json` and the system rebuilds |
-| `omarchy-update` | Rebuild, bump flake inputs + rebuild, roll back a generation, garbage collect |
-| Web apps / TUIs | Same as Omarchy: imperative `.desktop` entries in `~/.local/share/applications` (Chromium `--app` windows, or kitty-wrapped commands) |
+| `omarchy-pkg-install` / `-remove` / `-present` → pacman | nixpkgs attributes in `modules/omarchy/apps.json`. Unknown names are skipped with a warning, so a typo can't break a rebuild. |
+| `omarchy-install-dev-env <lang>` → `mise use --global` | Scaffolds a **new project** with that language's [nix-templates/dev](https://github.com/nix-templates/dev) devShell (see below) |
+| `omarchy-install-docker-dbs` → `docker run` | Toggles PostgreSQL / MySQL / MariaDB / Redis / MongoDB / MSSQL in `dbs.json`; each becomes a `virtualisation.oci-containers` unit bound to localhost |
+| `omarchy-theme-set` / `-install` / `-remove` | The theme choice and installed community themes live in `theme.json` (see [Themes](#themes)) |
+| `omarchy-update` | Update › Everything bumps the flake inputs (Omarchy included) and rebuilds; Apply Config, Roll Back and Garbage Collect sit beside it |
+| `omarchy-install-font` | Maps the Arch font package to its `nerd-fonts.*` attribute |
+| `omarchy-capture-screenshot` → omasnap | hyprshot + satty (omasnap isn't packaged) |
+| `omarchy-restart-shell` | `systemctl --user restart omarchy-shell` |
+| `omarchy-dns`, `omarchy-apply-lock` | Declared in NixOS instead (`networking.nameservers`; lock PAM services in `modules/omarchy/system.nix`) |
 
-### The menu (SUPER+SPACE)
+The menu gets a NixOS layer (`modules/omarchy/menu.nix`, deployed as
+`~/.config/omarchy/extensions/omarchy-menu.jsonc`):
 
-A rofi tree, `omarchy-menu [route]`:
+- **Install/Remove:** entries with a nixpkgs equivalent (browsers, editors,
+  terminals, fonts, Lutris, Heroic, RetroArch, Ollama, …) install through
+  `apps.json`.
+- **Hidden:** Arch-only entries (AUR, Plymouth, release channels, runtime
+  `/etc` edits, factory reset) are hidden.
+- **Config editors:** they open the config repo.
 
-- **Apps**: the launcher
-- **Trigger**: capture (screenshot region/window/screen through satty, screen recording, OCR, QR, colour picker), toggles, clipboard history, emoji
-- **Style**: theme (preview grid), background, Hyprland look
-- **Setup**: Wi-Fi, Bluetooth, audio, monitors, keybindings, open the config repo in the editor or lazygit
-- **Install / Remove**: package, web app, TUI, development environment, Docker database
-- **Update**: rebuild, bump inputs, roll back, garbage collect
-- **Learn**: live keybinding cheatsheet, NixOS manual, nixpkgs search, Home Manager options, Hyprland wiki
-- **System**: lock, suspend, logout, restart Hyprland, reboot, shutdown
-
-Direct routes are bound too: SUPER+ESC system, SUPER+CTRL+C capture,
-SUPER+CTRL+O toggles, SUPER+K keybindings, SUPER+CTRL+SPACE wallpaper,
-SUPER+CTRL+E emoji. SUPER+CTRL+I / N toggle idle and nightlight, SUPER+SHIFT+SPACE
-toggles the bar, and SUPER+, / SHIFT+, / CTRL+, dismiss or silence
-notifications. Press SUPER+K for the full list; it's read live from `hyprctl`.
+The shell replaces a shipped menu entry wholesale with the extension's
+version, so `menu.nix` merges its changes onto upstream's entries at build
+time. The build also fails if any visible entry would lack an icon.
 
 ### Development environments
 
-Install › Development environment lists every template from
-[nix-templates/dev](https://github.com/nix-templates/dev), pinned as the
-`dev-templates` flake input, plus three framework layers from `templates/`.
-Each scaffolded project gets:
+Install › Development keeps Omarchy's language entries (Rails, Node.js,
+Go, Python, Rust, Laravel, Phoenix, …); each scaffolds a new project with
+that language's devShell. All Templates opens a picker with every template
+from [nix-templates/dev](https://github.com/nix-templates/dev), pinned as
+the `dev-templates` flake input, plus three framework layers from
+`templates/`. Each scaffolded project gets:
 
 - `flake.nix`: a devShell with the toolchain, language server, linters,
   formatters and SAST/secret scanners, plus `lint`, `fmt` and `scan` commands
@@ -161,8 +194,8 @@ modules/
 
   home/                 user layer, through home-manager
     hyprland.nix        Lua config (0.55, x86) or .conf (0.52, Asahi); keybinds; workspace pinning per monitor
-    quickshell/         top bar with calendar, mixer and power popups (replaces waybar.nix, kept unimported)
-    desktop.nix         kitty, rofi, swaync, hyprlock/hypridle, GUI app baseline, Tuta PWA
+    quickshell/         bar for hosts without Omarchy's shell (Apple Silicon)
+    desktop.nix         kitty, rofi, GUI app baseline, Tuta PWA; swaync/hyprlock/hypridle without the shell
     shell.nix           zsh + starship; nrs alias
     cli.nix             lsd, bat, fzf, zoxide, yazi, lazygit, btop, …
     neovim.nix          neovim + direnv; ~/.config/nvim → ~/dotfiles/nvim (LazyVim, out of store)
@@ -171,12 +204,16 @@ modules/
     colors.nix          re-exports the active Omarchy palette
 
   omarchy/              the Omarchy port
-    home.nix            menu scripts, menu-installed packages, theme wallpaper sets
-    system.nix          Docker + menu-managed database containers
-    theme.nix           Omarchy theme registry (colors.toml → palette, ANSI, base16, neovim)
+    package.nix         upstream Omarchy packaged for NixOS (shell, commands, themes)
+    home.nix            omarchy.shell.enable: the shell service, theme hierarchy, menu layer
+    system.nix          Docker + database containers, lock-screen PAM, screen recording
+    nixos-bin/          declarative NixOS versions of omarchy-* commands
+    menu.nix            NixOS layer over Omarchy's menu (merged, icons enforced)
+    theme.nix           theme registry: colors.toml → Stylix base16 + palette
+    community-themes.json  catalog of Omarchy's community themes
     dev-templates.nix   nix-templates/dev + local framework layers
-    apps.json dbs.json theme.json    state the menu edits
-    scripts/            omarchy-* shell scripts
+    apps.json dbs.json theme.json    state the commands edit
+    scripts/            the rofi menu and scripts for hosts without the shell
 ```
 
 ## Bootstrap
@@ -223,38 +260,47 @@ hyprlock still covers idle and suspend.
 
 ## Themes
 
-All of Omarchy's themes, read from upstream (the pinned `omarchy` flake
-input): catppuccin, catppuccin-latte, ethereal, everforest, flexoki-light,
+**Built in:** all 22 themes Omarchy ships, read from the pinned `omarchy`
+input: catppuccin, catppuccin-latte, ethereal, everforest, flexoki-light,
 gruvbox, hackerman, kanagawa, last-horizon, lumon, lupine, matte-black,
 miasma, nord, osaka-jade, retro-82, ristretto, rose-pine, solitude,
-tokyo-night, vantablack and white. `nix flake update omarchy` picks up new
-ones.
+tokyo-night, vantablack and white.
 
-Pick one in Style › Theme (a grid of the themes' preview images) or with
-`omarchy-theme-set <name>`. The choice is written to
-`modules/omarchy/theme.json` and the system rebuilds. The layout on disk
-matches Omarchy's:
+**Community:** the 112 extra themes listed in Omarchy's manual
+(`modules/omarchy/community-themes.json`), from Dracula and Synthwave '84
+to Monokai and Solarized. Install › Style › Theme picks one, or run
+`omarchy-theme-install <name | github-url>`. The repo is pinned (rev +
+hash) in `modules/omarchy/theme.json` and fetched at build time. Remove ›
+Theme drops it again.
+
+Pick the active theme in Style › Theme (Omarchy's preview grid) or with
+`omarchy-theme-set <name>`; the system rebuilds and the shell restarts in
+the new colours. The layout on disk matches Omarchy's:
 
 ```
-~/.config/omarchy/themes/<name>/     every theme: colors.toml, backgrounds/, preview.png, neovim.lua, …
-~/.config/omarchy/current/theme  →   the active theme's directory
+~/.config/omarchy/themes/<name>/            every theme
+~/.local/state/omarchy/current/theme   →    the active one
+~/.local/state/omarchy/current/background → the wallpaper
 ```
 
-`modules/omarchy/theme.nix` reads each theme's `colors.toml` and applies
-Omarchy's fallback rules for missing keys. It then drives:
+Each theme directory is built by Omarchy's own renderer
+(`omarchy-theme-set-templates`, plus `omarchy-theme-colors-from-alacritty`
+for older community themes), so it holds exactly what Omarchy would stage:
+`colors.toml`, `shell.toml` for the shell, `kitty.conf`, `neovim.lua`,
+`btop.theme`, `hyprland.lua`, backgrounds and previews.
 
-- **Hyprland** borders (accent), **kitty** (ANSI 16, mapped like Omarchy's
-  kitty template), **rofi**, **swaync**, **hyprlock**, the **Quickshell**
-  bar and the **starship** prompt, through `modules/home/colors.nix`
-- **Stylix** (`modules/common/stylix.nix`): a base16 scheme and light/dark
-  polarity from the theme, for GTK, Qt, console, bat, btop, fzf, Chromium,
-  VS Code, Vencord, …
-- **Neovim**: `~/dotfiles/nvim/lua/plugins/colorscheme.lua` loads the
-  active theme's `neovim.lua` (LazyVim spec). Themes that don't ship one get
-  the aether.nvim spec Omarchy generates from the palette. Restart Neovim
-  after switching.
-- **Wallpaper**: the theme's first background. Style › Background picks
-  from the theme's set or from loose files in `~/Wallpapers`.
+`modules/omarchy/theme.nix` resolves the same colours in Nix, with
+Omarchy's fallback rules, for what needs them when the system is built:
+
+- **Stylix** (`modules/common/stylix.nix`): base16 scheme and light/dark
+  polarity for GTK, Qt, console, bat, btop, fzf, Chromium, VS Code,
+  Vencord, …
+- **kitty** (ANSI 16, mapped like Omarchy's kitty template), **rofi**,
+  the **starship** prompt and Hyprland's accent, through
+  `modules/home/colors.nix`
+
+**Neovim:** `~/dotfiles/nvim/lua/plugins/colorscheme.lua` loads the active
+theme's `neovim.lua` (a LazyVim spec). Restart Neovim after switching.
 
 ## Notes
 

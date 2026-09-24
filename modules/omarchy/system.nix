@@ -8,6 +8,9 @@ let
   # localhost only).
   dbState = builtins.fromJSON (builtins.readFile ./dbs.json);
 
+  # Whether the user runs Omarchy's shell (home-manager option).
+  omarchyShell = config.home-manager.users.${username}.omarchy.shell.enable;
+
   dbDefs = {
     mysql = {
       image = "mysql:8.4";
@@ -77,4 +80,17 @@ in
   };
 
   environment.systemPackages = [ pkgs.lazydocker ];
+
+  # Omarchy's shell (modules/omarchy/home.nix) authenticates its lock screen
+  # through these PAM services and refuses to lock when the password one is
+  # missing. Upstream writes /etc/pam.d itself (omarchy-apply-lock).
+  security.pam.services = lib.mkIf omarchyShell ({
+    omarchy-lock-password = { };
+  } // lib.optionalAttrs config.services.fprintd.enable {
+    omarchy-lock-fingerprint = { fprintAuth = true; unixAuth = false; };
+  });
+
+  # Screen recording (Trigger > Capture > Screenrecord) captures through
+  # KMS, which needs gpu-screen-recorder's capability wrapper.
+  programs.gpu-screen-recorder.enable = lib.mkIf omarchyShell true;
 }

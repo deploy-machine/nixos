@@ -1,5 +1,6 @@
-# Quickshell top bar — replaces waybar (modules/home/waybar.nix is kept in
-# the tree but no longer imported). Same information layout as the old bar
+# Quickshell top bar for hosts without Omarchy's shell (Apple Silicon);
+# replaces waybar (modules/home/waybar.nix is kept in the tree but no longer
+# imported). Same information layout as the old bar
 # (workspaces, clocks, window title, metrics, network, audio, notifications,
 # tray) plus omarchy-style popups: calendar, audio mixer, power menu.
 #
@@ -100,7 +101,9 @@ let
     '';
   };
 in
-{
+# Only where Omarchy's own shell can't run (Apple Silicon, Hyprland 0.52);
+# elsewhere modules/omarchy/home.nix runs the Omarchy shell instead.
+lib.mkIf (!config.omarchy.shell.enable) {
   home.packages = [
     pkgs.quickshell
     metricsScript

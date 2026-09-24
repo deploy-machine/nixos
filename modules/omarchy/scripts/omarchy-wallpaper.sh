@@ -1,12 +1,12 @@
 # Background switcher (omarchy style.background): pick an image from the
-# active theme's background set (~/.config/omarchy/current/theme/
+# active theme's background set (~/.local/state/omarchy/current/theme/
 # backgrounds) or any loose file in ~/Wallpapers, then paint it with
 # awww/swww. Session-scoped; the theme default repaints on next login.
 
 list() {
   find "$HOME/Wallpapers" -maxdepth 1 -type f \
        \( -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.webp' \) 2>/dev/null
-  find -L "$HOME/.config/omarchy/current/theme/backgrounds" -maxdepth 1 -type f \
+  find -L "$HOME/.local/state/omarchy/current/theme/backgrounds" -maxdepth 1 -type f \
        \( -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.webp' \) 2>/dev/null
 }
 
@@ -20,8 +20,8 @@ declare -A by_label
 labels=()
 for f in "${files[@]}"; do
   case "$f" in
-    "$HOME/.config/omarchy/"*) label="󰸌  $(basename "$f")" ;;
-    *) label="  $(basename "$f")" ;;
+    "$HOME/.local/state/omarchy/"*) label="󰸌  $(basename "$f")" ;;
+    *) label="$(printf '\uf03e')  $(basename "$f")" ;;
   esac
   by_label["$label"]="$f"
   labels+=("$label")
