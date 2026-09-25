@@ -10,6 +10,10 @@ let
   # loads Omarchy's own keybind / window-rule / toggle modules from it.
   omarchyShell = config.omarchy.shell.enable;
   omarchyPath = "${config.home.homeDirectory}/.local/share/omarchy";
+  # Omarchy's Lua modules load from the package itself: the ~/.local/share
+  # link can still be missing when Hyprland auto-reloads a freshly written
+  # config during activation.
+  omarchyStore = "${config.omarchy.package}/share/omarchy";
 
   # 26.05 renamed swww → awww; 25.11 still ships swww. The CLIs are
   # identical (`<bin> img <path>`, `<bin>-daemon`) so the autostart lines
@@ -514,7 +518,7 @@ let
       end
     end
     package.path = home .. "/.local/state/?.lua;"
-      .. "${omarchyPath}/?.lua;"
+      .. "${omarchyStore}/?.lua;"
       .. package.path
     -- paths.lua falls back to /usr/share/omarchy when OMARCHY_PATH isn't in
     -- Hyprland's environment; hand it the real locations.
@@ -522,7 +526,7 @@ let
       home = home,
       config_home = home .. "/.config",
       state_home = home .. "/.local/state",
-      omarchy_path = "${omarchyPath}",
+      omarchy_path = "${omarchyStore}",
     }
     hl.env("OMARCHY_PATH", "${omarchyPath}")
     require("default.hypr.helpers")

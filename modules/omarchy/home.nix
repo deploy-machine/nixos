@@ -177,6 +177,14 @@ let
   menuPackages = lib.concatMap resolvePackage appState.packages;
 in
 {
+  options.omarchy.package = lib.mkOption {
+    type = lib.types.package;
+    readOnly = true;
+    internal = true;
+    default = omarchy;
+    description = "The Omarchy package (share/omarchy is OMARCHY_PATH).";
+  };
+
   options.omarchy.shell.enable = lib.mkOption {
     type = lib.types.bool;
     # Needs Hyprland's Lua config API (0.55+, the 26.05 channel). Apple
@@ -267,6 +275,10 @@ in
             "OMARCHY_PATH=${omarchyPath}"
             "QS_DISABLE_FILE_WATCHER=1"
             "QS_NO_RELOAD_POPUP=1"
+            # Theme backgrounds are mostly WebP; nixpkgs' Quickshell only
+            # ships Qt's built-in image formats (the wrapper prepends its own
+            # plugin paths, so this one is kept).
+            "QT_PLUGIN_PATH=${unstable.kdePackages.qtimageformats}/lib/qt-6/plugins"
             "PATH=${config.home.profileDirectory}/bin:/run/wrappers/bin:/run/current-system/sw/bin"
           ];
           Restart = "on-failure";
